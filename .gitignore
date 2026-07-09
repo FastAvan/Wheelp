@@ -1,0 +1,7 @@
+# macOS
+.DS_Store
+
+# Xcode: datos por usuario y productos de compilación
+xcuserdata/
+build/
+DerivedData/

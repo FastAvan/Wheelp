@@ -1,0 +1,165 @@
+import SwiftUI
+import Supabase
+
+/// Tipo de discapacidad que determina qué "versión" de la app se presenta.
+enum DisabilityType: String, CaseIterable, Identifiable, Codable {
+    case physical
+    case hearing
+    case visual
+    case none // El usuario continúa sin discapacidad declarada.
+
+    var id: String { rawValue }
+
+    /// Opciones que se muestran al usuario (excluye `.none`).
+    static var selectable: [DisabilityType] { [.physical, .hearing, .visual] }
+
+    var title: String {
+        switch self {
+        case .physical: "Física"
+        case .hearing: "Auditiva"
+        case .visual: "Visual"
+        case .none: "Estándar"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .physical: "figure.roll"
+        case .hearing: "ear"
+        case .visual: "eye"
+        case .none: "person.fill"
+        }
+    }
+}
+
+/// Estado global: sesión (Supabase), progreso de onboarding y configuración.
+/// La sesión la persiste el propio SDK de Supabase; el onboarding y el tipo de
+/// discapacidad se guardan localmente en `UserDefaults`.
+@Observable
+final class AppState {
+    var isSignedIn = false
+    var hasCompletedOnboarding: Bool
+    var disabilityType: DisabilityType?
+    var userName: String?
+
+    /// Alias elegido por el usuario. Se guarda solo en el dispositivo.
+    var displayName: String {
+        didSet { defaults.set(displayName, forKey: Keys.displayName) }
+    }
+
+    /// Nombre con el que te ven los demás (peticiones de ayuda y chat):
+    /// el alias si lo hay; si no, la parte del correo antes de la arroba.
+    var publicName: String {
+        let alias = displayName.trimmingCharacters(in: .whitespaces)
+        if !alias.isEmpty { return alias }
+        if let email = userName, let prefix = email.split(separator: "@").first {
+            return String(prefix)
+        }
+        return "Usuario de Wheelp"
+    }
+
+    /// Control por voz (versión Visual). Si está desactivado, la app se usa solo
+    /// con toques en pantalla y no se activa el micrófono.
+    var voiceControlEnabled: Bool {
+        didSet { defaults.set(voiceControlEnabled, forKey: Keys.voiceControl) }
+    }
+
+    /// Velocidad de la voz (rate de AVSpeechUtterance, 0.3 lenta – 0.65 rápida).
+    var voiceRate: Double {
+        didSet { defaults.set(voiceRate, forKey: Keys.voiceRate) }
+    }
+
+    /// ¿Este usuario es ayudante? Se decide FUERA de la app: el equipo de Wheelp
+    /// da de alta al usuario en la tabla `helpers` de Supabase y la app lo detecta.
+    var isHelper = false
+
+    static let defaultVoiceRate = 0.5
+
+    private let defaults = UserDefaults.standard
+
+    private enum Keys {
+        static let onboarded = "wheelp.hasCompletedOnboarding"
+        static let disability = "wheelp.disabilityType"
+        static let voiceControl = "wheelp.voiceControlEnabled"
+        static let voiceRate = "wheelp.voiceRate"
+        static let displayName = "wheelp.displayName"
+    }
+
+    init() {
+        hasCompletedOnboarding = defaults.bool(forKey: Keys.onboarded)
+        displayName = defaults.string(forKey: Keys.displayName) ?? ""
+        if let raw = defaults.string(forKey: Keys.disability) {
+            disabilityType = DisabilityType(rawValue: raw)
+        }
+        // Por defecto activado en la versión Visual.
+        voiceControlEnabled = (defaults.object(forKey: Keys.voiceControl) as? Bool) ?? true
+        voiceRate = (defaults.object(forKey: Keys.voiceRate) as? Double) ?? Self.defaultVoiceRate
+    }
+
+    // MARK: - Autenticación (Supabase)
+
+    /// Restaura la sesión persistida por Supabase al arrancar la app.
+    /// Usa la sesión guardada en el dispositivo para entrar al instante;
+    /// solo va a la red si no hay ninguna. El estado de ayudante se
+    /// comprueba en segundo plano para no retrasar el arranque.
+    func bootstrap() async {
+        var session = supabase.auth.currentSession
+        if session == nil {
+            session = try? await supabase.auth.session
+        }
+        if let session {
+            isSignedIn = true
+            userName = session.user.email
+            Task { isHelper = await HelperService.isRegisteredHelper() }
+        }
+    }
+
+    func signIn(email: String, password: String) async throws {
+        let session = try await supabase.auth.signIn(email: email, password: password)
+        userName = session.user.email
+        isSignedIn = true
+        Task { isHelper = await HelperService.isRegisteredHelper() }
+    }
+
+    /// Registra un usuario nuevo. Devuelve `true` si la sesión queda activa,
+    /// o `false` si el proyecto exige confirmar el email antes de entrar.
+    @discardableResult
+    func signUp(email: String, password: String) async throws -> Bool {
+        let response = try await supabase.auth.signUp(email: email, password: password)
+        if let session = response.session {
+            userName = session.user.email
+            isSignedIn = true
+            return true
+        }
+        return false
+    }
+
+    func signOut() async {
+        try? await supabase.auth.signOut()
+        isSignedIn = false
+        userName = nil
+        isHelper = false
+    }
+
+    // MARK: - Onboarding
+
+    /// Marca el onboarding como completado con el tipo de discapacidad elegido.
+    func completeOnboarding(disability: DisabilityType) {
+        disabilityType = disability
+        hasCompletedOnboarding = true
+        defaults.set(disability.rawValue, forKey: Keys.disability)
+        defaults.set(true, forKey: Keys.onboarded)
+    }
+
+    /// Cambia la "versión" (tipo de discapacidad) desde los ajustes.
+    func setDisability(_ type: DisabilityType) {
+        disabilityType = type
+        defaults.set(type.rawValue, forKey: Keys.disability)
+    }
+
+    /// Vuelve a lanzar el onboarding (asistente Wheelp) manteniendo la sesión.
+    func restartOnboarding() {
+        hasCompletedOnboarding = false
+        defaults.set(false, forKey: Keys.onboarded)
+    }
+}

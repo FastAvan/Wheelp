@@ -6,8 +6,75 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7D1C7BD12FEE8C0500302B3D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD02FEE8C0500302B3D /* Supabase */; };
+		7D1C7BD32FEE8C1100302B3D /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD22FEE8C1100302B3D /* Auth */; };
+		7D1C7BD52FEE8C1100302B3D /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD42FEE8C1100302B3D /* Functions */; };
+		7D1C7BD72FEE8C1100302B3D /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD62FEE8C1100302B3D /* PostgREST */; };
+		7D1C7BD92FEE8C1100302B3D /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD82FEE8C1100302B3D /* Realtime */; };
+		7D1C7BDB2FEE8C1100302B3D /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BDA2FEE8C1100302B3D /* Storage */; };
+		7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */; };
+		7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */; };
+		7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506462FF1775B0066B1C2 /* WheelpApp.swift */; };
+		7DA506492FF177640066B1C2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506482FF177640066B1C2 /* Theme.swift */; };
+		7DA5064B2FF177750066B1C2 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5064A2FF177750066B1C2 /* AppState.swift */; };
+		7DA5064D2FF177790066B1C2 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5064C2FF177790066B1C2 /* RootView.swift */; };
+		7DA5064F2FF177830066B1C2 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5064E2FF177830066B1C2 /* LoginView.swift */; };
+		7DA506512FF177970066B1C2 /* OnboardingFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506502FF177970066B1C2 /* OnboardingFlowView.swift */; };
+		7DA506532FF177A60066B1C2 /* ConfiguringView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506522FF177A60066B1C2 /* ConfiguringView.swift */; };
+		7DA506552FF177AC0066B1C2 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506542FF177AC0066B1C2 /* HomeView.swift */; };
+		7DA5065B2FF179700066B1C2 /* SupabaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5065A2FF179700066B1C2 /* SupabaseManager.swift */; };
+		7DA5065D2FF17C530066B1C2 /* AccessibilityProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5065C2FF17C530066B1C2 /* AccessibilityProfile.swift */; };
+		7DA5065F2FF17C590066B1C2 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5065E2FF17C590066B1C2 /* LocationManager.swift */; };
+		7DA506612FF17C800066B1C2 /* MapHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506602FF17C800066B1C2 /* MapHomeView.swift */; };
+		7DA506632FF17DB20066B1C2 /* DestinationAccessibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506622FF17DB20066B1C2 /* DestinationAccessibility.swift */; };
+		7DA506652FF17E8E0066B1C2 /* SpeechAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506642FF17E8E0066B1C2 /* SpeechAnnouncer.swift */; };
+		7DA506672FF17F560066B1C2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506662FF17F560066B1C2 /* SettingsView.swift */; };
+		7DA5066B2FF181260066B1C2 /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5066A2FF181260066B1C2 /* SpeechRecognizer.swift */; };
+		7DA5066D2FF181750066B1C2 /* VoiceHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5066C2FF181750066B1C2 /* VoiceHomeView.swift */; };
+		7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */; };
+		7DE071F6300032800089CE1E /* ChatNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F5300032800089CE1E /* ChatNotifier.swift */; };
+		7DE112092FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */; };
+		7DE8AFCB2FFCDE8D00611E32 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFCA2FFCDE8D00611E32 /* NotificationService.swift */; };
+		7DE8AFCD2FFCDEF400611E32 /* HelpChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFCC2FFCDEF400611E32 /* HelpChatView.swift */; };
+		7DE8AFCF2FFCDFE700611E32 /* HelperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFCE2FFCDFE700611E32 /* HelperService.swift */; };
+		7DE8AFD12FFCE00F00611E32 /* HelperRequestsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFD02FFCE00F00611E32 /* HelperRequestsView.swift */; };
+		7DFCEDA42FF25A4A00D2D815 /* AccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */; };
+		7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */; };
+		7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Wheelp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wheelp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestSetupView.swift; sourceTree = "<group>"; };
+		7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedPlacesService.swift; sourceTree = "<group>"; };
+		7DA506462FF1775B0066B1C2 /* WheelpApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelpApp.swift; sourceTree = "<group>"; };
+		7DA506482FF177640066B1C2 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		7DA5064A2FF177750066B1C2 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		7DA5064C2FF177790066B1C2 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		7DA5064E2FF177830066B1C2 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		7DA506502FF177970066B1C2 /* OnboardingFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlowView.swift; sourceTree = "<group>"; };
+		7DA506522FF177A60066B1C2 /* ConfiguringView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfiguringView.swift; sourceTree = "<group>"; };
+		7DA506542FF177AC0066B1C2 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		7DA5065A2FF179700066B1C2 /* SupabaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseManager.swift; sourceTree = "<group>"; };
+		7DA5065C2FF17C530066B1C2 /* AccessibilityProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityProfile.swift; sourceTree = "<group>"; };
+		7DA5065E2FF17C590066B1C2 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		7DA506602FF17C800066B1C2 /* MapHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapHomeView.swift; sourceTree = "<group>"; };
+		7DA506622FF17DB20066B1C2 /* DestinationAccessibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DestinationAccessibility.swift; sourceTree = "<group>"; };
+		7DA506642FF17E8E0066B1C2 /* SpeechAnnouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAnnouncer.swift; sourceTree = "<group>"; };
+		7DA506662FF17F560066B1C2 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		7DA5066A2FF181260066B1C2 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
+		7DA5066C2FF181750066B1C2 /* VoiceHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceHomeView.swift; sourceTree = "<group>"; };
+		7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteObstaclesService.swift; sourceTree = "<group>"; };
+		7DE071F5300032800089CE1E /* ChatNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatNotifier.swift; sourceTree = "<group>"; };
+		7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooglePlacesAccessibilityService.swift; sourceTree = "<group>"; };
+		7DE8AFCA2FFCDE8D00611E32 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		7DE8AFCC2FFCDEF400611E32 /* HelpChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpChatView.swift; sourceTree = "<group>"; };
+		7DE8AFCE2FFCDFE700611E32 /* HelperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperService.swift; sourceTree = "<group>"; };
+		7DE8AFD02FFCE00F00611E32 /* HelperRequestsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperRequestsView.swift; sourceTree = "<group>"; };
+		7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
+		7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributeAccessibilityView.swift; sourceTree = "<group>"; };
+		7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSMAccessibilityService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -22,6 +89,12 @@
 		000000000000000130000000 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				7D1C7BDB2FEE8C1100302B3D /* Storage in Frameworks */,
+				7D1C7BD72FEE8C1100302B3D /* PostgREST in Frameworks */,
+				7D1C7BD52FEE8C1100302B3D /* Functions in Frameworks */,
+				7D1C7BD32FEE8C1100302B3D /* Auth in Frameworks */,
+				7D1C7BD92FEE8C1100302B3D /* Realtime in Frameworks */,
+				7D1C7BD12FEE8C0500302B3D /* Supabase in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -31,7 +104,37 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000010 /* Wheelp */,
+				7D1C7BCF2FEE8C0500302B3D /* Frameworks */,
 				000000000000000000000020 /* Products */,
+				7DA506462FF1775B0066B1C2 /* WheelpApp.swift */,
+				7DA506482FF177640066B1C2 /* Theme.swift */,
+				7DA5064A2FF177750066B1C2 /* AppState.swift */,
+				7DA5064C2FF177790066B1C2 /* RootView.swift */,
+				7DA5064E2FF177830066B1C2 /* LoginView.swift */,
+				7DA506502FF177970066B1C2 /* OnboardingFlowView.swift */,
+				7DA506522FF177A60066B1C2 /* ConfiguringView.swift */,
+				7DA506542FF177AC0066B1C2 /* HomeView.swift */,
+				7DA5065A2FF179700066B1C2 /* SupabaseManager.swift */,
+				7DA5065C2FF17C530066B1C2 /* AccessibilityProfile.swift */,
+				7DA5065E2FF17C590066B1C2 /* LocationManager.swift */,
+				7DA506602FF17C800066B1C2 /* MapHomeView.swift */,
+				7DA506622FF17DB20066B1C2 /* DestinationAccessibility.swift */,
+				7DA506642FF17E8E0066B1C2 /* SpeechAnnouncer.swift */,
+				7DA506662FF17F560066B1C2 /* SettingsView.swift */,
+				7DA5066A2FF181260066B1C2 /* SpeechRecognizer.swift */,
+				7DA5066C2FF181750066B1C2 /* VoiceHomeView.swift */,
+				7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */,
+				7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */,
+				7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */,
+				7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */,
+				7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */,
+				7DE8AFCA2FFCDE8D00611E32 /* NotificationService.swift */,
+				7DE8AFCC2FFCDEF400611E32 /* HelpChatView.swift */,
+				7DE8AFCE2FFCDFE700611E32 /* HelperService.swift */,
+				7DE8AFD02FFCE00F00611E32 /* HelperRequestsView.swift */,
+				7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */,
+				7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */,
+				7DE071F5300032800089CE1E /* ChatNotifier.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -41,6 +144,13 @@
 				000000000000000000000120 /* Wheelp.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		7D1C7BCF2FEE8C0500302B3D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -60,6 +170,14 @@
 				000000000000000000000010 /* Wheelp */,
 			);
 			name = Wheelp;
+			packageProductDependencies = (
+				7D1C7BD02FEE8C0500302B3D /* Supabase */,
+				7D1C7BD22FEE8C1100302B3D /* Auth */,
+				7D1C7BD42FEE8C1100302B3D /* Functions */,
+				7D1C7BD62FEE8C1100302B3D /* PostgREST */,
+				7D1C7BD82FEE8C1100302B3D /* Realtime */,
+				7D1C7BDA2FEE8C1100302B3D /* Storage */,
+			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* Wheelp.app */;
 			productType = "com.apple.product-type.application";
@@ -88,6 +206,9 @@
 			);
 			mainGroup = 000000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
 			projectDirPath = "";
@@ -110,6 +231,35 @@
 		000000000000000120000000 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				7DA506672FF17F560066B1C2 /* SettingsView.swift in Sources */,
+				7DA5066B2FF181260066B1C2 /* SpeechRecognizer.swift in Sources */,
+				7DFCEDA42FF25A4A00D2D815 /* AccessibilityService.swift in Sources */,
+				7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */,
+				7DA506632FF17DB20066B1C2 /* DestinationAccessibility.swift in Sources */,
+				7DA5064D2FF177790066B1C2 /* RootView.swift in Sources */,
+				7DA5064B2FF177750066B1C2 /* AppState.swift in Sources */,
+				7DA5065D2FF17C530066B1C2 /* AccessibilityProfile.swift in Sources */,
+				7DA5065F2FF17C590066B1C2 /* LocationManager.swift in Sources */,
+				7DE8AFCD2FFCDEF400611E32 /* HelpChatView.swift in Sources */,
+				7DA5066D2FF181750066B1C2 /* VoiceHomeView.swift in Sources */,
+				7DA506532FF177A60066B1C2 /* ConfiguringView.swift in Sources */,
+				7DE112092FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift in Sources */,
+				7DA5065B2FF179700066B1C2 /* SupabaseManager.swift in Sources */,
+				7DA506652FF17E8E0066B1C2 /* SpeechAnnouncer.swift in Sources */,
+				7DE071F6300032800089CE1E /* ChatNotifier.swift in Sources */,
+				7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */,
+				7DA506612FF17C800066B1C2 /* MapHomeView.swift in Sources */,
+				7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */,
+				7DA506512FF177970066B1C2 /* OnboardingFlowView.swift in Sources */,
+				7DA506552FF177AC0066B1C2 /* HomeView.swift in Sources */,
+				7DE8AFCB2FFCDE8D00611E32 /* NotificationService.swift in Sources */,
+				7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */,
+				7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */,
+				7DE8AFCF2FFCDFE700611E32 /* HelperService.swift in Sources */,
+				7DA5064F2FF177830066B1C2 /* LoginView.swift in Sources */,
+				7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */,
+				7DE8AFD12FFCE00F00611E32 /* HelperRequestsView.swift in Sources */,
+				7DA506492FF177640066B1C2 /* Theme.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */
@@ -250,7 +400,7 @@
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "Wheelp" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Wheelp;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
@@ -272,21 +422,21 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Wheelp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Accede a Wheelp rápidamente";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wheelp usa el micrófono para permitir búsqueda por voz a usuarios con discapacidad visual o motriz ";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wheelp usa el reconocimiento de voz para que puedas decir en voz alta a dónde quieres ir";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = NO;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = "";
-				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UIStatusBarStyle = "";
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
@@ -311,7 +461,7 @@
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "Wheelp" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = Wheelp;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
@@ -333,21 +483,21 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Wheelp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Accede a Wheelp rápidamente";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wheelp usa el micrófono para permitir búsqueda por voz a usuarios con discapacidad visual o motriz ";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wheelp usa el reconocimiento de voz para que puedas decir en voz alta a dónde quieres ir";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = NO;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = "";
-				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UIStatusBarStyle = "";
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
@@ -389,6 +539,50 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7D1C7BD02FEE8C0500302B3D /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		7D1C7BD22FEE8C1100302B3D /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		7D1C7BD42FEE8C1100302B3D /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		7D1C7BD62FEE8C1100302B3D /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		7D1C7BD82FEE8C1100302B3D /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		7D1C7BDA2FEE8C1100302B3D /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 000000000000000000000000 /* Project object */;
 }
