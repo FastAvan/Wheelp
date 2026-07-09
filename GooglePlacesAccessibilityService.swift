@@ -6,7 +6,7 @@ import MapKit
 /// 👉 Pega aquí tu clave: Google Cloud Console → APIs y servicios → Credenciales.
 ///    Necesitas habilitar "Places API (New)" y tener facturación activada.
 enum GooglePlacesConfig {
-    static let apiKey = "AIzaSyDm6WjEJaGzbjnUNSQIDTqTh1N1zzRXgCQ"
+    static let apiKey = "GOOGLE_KEY_REMOVED_ROTATED"
 
     static var isConfigured: Bool {
         !apiKey.isEmpty && apiKey != "TU_API_KEY_DE_GOOGLE"
