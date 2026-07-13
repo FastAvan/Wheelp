@@ -11,6 +11,7 @@ struct SettingsView: View {
             List {
                 accountSection
                 versionSection
+                paceSection
                 if appState.disabilityType == .visual {
                     voiceSection
                 }
@@ -86,6 +87,35 @@ struct SettingsView: View {
             Text("Versión de accesibilidad")
         } footer: {
             Text("Cambia cómo se presenta Wheelp y qué accesibilidad se prioriza en cada destino y ruta.")
+        }
+    }
+
+    /// El estado solo fuerza el refresco de la sección al reiniciar el ritmo.
+    @State private var paceWasReset = false
+
+    private var paceSection: some View {
+        Section {
+            HStack {
+                Label("Tu ritmo", systemImage: "figure.walk")
+                Spacer()
+                Text(WalkingPaceService.paceDescription(for: appState.disabilityType ?? .none))
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            if WalkingPaceService.learnedSeconds > 0 {
+                Button(role: .destructive) {
+                    WalkingPaceService.reset()
+                    paceWasReset.toggle()
+                } label: {
+                    Label("Reiniciar ritmo aprendido", systemImage: "arrow.counterclockwise")
+                }
+            }
+        } header: {
+            Text("Ritmo de marcha")
+        } footer: {
+            Text(WalkingPaceService.hasReliablePace
+                 ? "Aprendido de tus trayectos reales. Los tiempos estimados se ajustan a tu ritmo. Se guarda solo en tu iPhone."
+                 : "Valor típico de tu versión. La app aprenderá tu ritmo real mientras navegas (se guarda solo en tu iPhone).")
         }
     }
 

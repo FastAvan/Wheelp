@@ -18,6 +18,9 @@ struct HelpRequestSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var meeting: HelpRequest.MeetingPoint = .destination
     @State private var selectedRouteIndex = 0
+    /// La petición no se envía sin consentimiento explícito para compartir
+    /// nombre y ubicaciones con los ayudantes.
+    @State private var consentAccepted = false
 
     /// Puntos intermedios elegibles: el final de cada paso con indicación.
     private var routeChoices: [(title: String, coordinate: CLLocationCoordinate2D)] {
@@ -81,6 +84,27 @@ struct HelpRequestSetupView: View {
 
                 Section {
                     Button {
+                        consentAccepted.toggle()
+                    } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: consentAccepted ? "checkmark.square.fill" : "square")
+                                .font(.title3)
+                                .foregroundStyle(Color.wheelpGreen)
+                            Text("Acepto compartir mi nombre y las ubicaciones de este trayecto con los ayudantes cercanos, solo para esta petición.")
+                                .font(.footnote)
+                                .foregroundStyle(.primary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Consentimiento para compartir mi nombre y ubicación con los ayudantes")
+                    .accessibilityAddTraits(consentAccepted ? .isSelected : [])
+                } footer: {
+                    Text("Sin tu consentimiento no se envía nada. El resto de tus datos nunca sale de tu iPhone.")
+                }
+
+                Section {
+                    Button {
                         let (name, coordinate) = resolvedMeeting()
                         onConfirm(meeting, name, coordinate)
                         dismiss()
@@ -90,6 +114,8 @@ struct HelpRequestSetupView: View {
                     }
                     .buttonStyle(.wheelpPrimary)
                     .frame(maxWidth: .infinity, minHeight: profile.controlMinHeight)
+                    .disabled(!consentAccepted)
+                    .opacity(consentAccepted ? 1 : 0.5)
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())

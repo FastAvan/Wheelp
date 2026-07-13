@@ -1,4 +1,12 @@
 import SwiftUI
+import MapKit
+
+/// Envoltorio identificable para presentar la hoja de aportación de un lugar
+/// concreto (p. ej. el destino recién visitado al finalizar una ruta).
+struct ContributionTarget: Identifiable {
+    let id = UUID()
+    let item: MKMapItem
+}
 
 /// Hoja para que el usuario aporte la accesibilidad de un destino.
 struct ContributeAccessibilityView: View {

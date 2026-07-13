@@ -1,24 +1,38 @@
 import Foundation
 import CoreLocation
+import CryptoKit
 import Supabase
 
-/// Petición de ayuda guardada en Supabase (tabla `help_requests`).
+/// Petición de ayuda tal y como se guarda en Supabase (tabla `help_requests`).
+///
+/// En el servidor solo es legible lo imprescindible para emparejar: una zona
+/// aproximada de recogida (~1 km), el lugar de destino, el tipo de discapacidad
+/// y las claves públicas. Nombres y trayecto exacto viajan cifrados de extremo
+/// a extremo y solo se rellenan (campos "descifrados") en los dos dispositivos.
 struct HelpRequest: Codable, Identifiable, Hashable {
     var id: UUID
     var requesterId: UUID?
-    var requesterName: String?
-    var placeName: String
-    var latitude: Double
-    var longitude: Double
-    var disabilityType: String
-    var status: Status
     var helperId: UUID?
-    var helperName: String?
+    var status: Status
+    var disabilityType: String
+    /// Zona aproximada de recogida (~1 km), única ubicación legible.
+    var areaLatitude: Double
+    var areaLongitude: Double
+    /// Lugar de destino (el usuario consiente compartirlo para la preaceptación).
+    var placeName: String
+    var requesterPubkey: String
+    var helperPubkey: String?
+    var requesterPayload: String?
+    var helperPayload: String?
     var createdAt: Date?
-    /// Origen del trayecto del usuario (su posición al pedir ayuda).
+
+    // Campos descifrados localmente (nunca viajan en claro).
+    var requesterName: String?
+    var helperName: String?
     var originLatitude: Double?
     var originLongitude: Double?
-    /// Dónde quiere encontrarse con el ayudante: origin | destination | route.
+    var destinationLatitude: Double?
+    var destinationLongitude: Double?
     var meetingPoint: String?
     var meetingName: String?
     var meetingLatitude: Double?
@@ -33,34 +47,40 @@ struct HelpRequest: Codable, Identifiable, Hashable {
         case origin, destination, route
     }
 
+    /// Solo los campos que existen en el servidor.
     enum CodingKeys: String, CodingKey {
         case id
         case requesterId = "requester_id"
-        case requesterName = "requester_name"
-        case placeName = "place_name"
-        case latitude
-        case longitude
-        case disabilityType = "disability_type"
-        case status
         case helperId = "helper_id"
-        case helperName = "helper_name"
+        case status
+        case disabilityType = "disability_type"
+        case areaLatitude = "area_latitude"
+        case areaLongitude = "area_longitude"
+        case placeName = "place_name"
+        case requesterPubkey = "requester_pubkey"
+        case helperPubkey = "helper_pubkey"
+        case requesterPayload = "requester_payload"
+        case helperPayload = "helper_payload"
         case createdAt = "created_at"
-        case originLatitude = "origin_latitude"
-        case originLongitude = "origin_longitude"
-        case meetingPoint = "meeting_point"
-        case meetingName = "meeting_name"
-        case meetingLatitude = "meeting_latitude"
-        case meetingLongitude = "meeting_longitude"
     }
 
+    /// ¿Ya se han descifrado el trayecto y el punto de encuentro exactos?
+    var hasExactDetails: Bool { meetingLatitude != nil }
+
+    /// Coordenada del destino (exacta si está descifrada; si no, la zona).
     var coordinate: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        if let destinationLatitude, let destinationLongitude {
+            return CLLocationCoordinate2D(latitude: destinationLatitude, longitude: destinationLongitude)
+        }
+        return CLLocationCoordinate2D(latitude: areaLatitude, longitude: areaLongitude)
     }
 
-    /// Coordenada del punto de encuentro (peticiones antiguas: el destino).
+    /// Punto de encuentro (exacto si está descifrado; si no, la zona aproximada).
     var meetingCoordinate: CLLocationCoordinate2D {
-        guard let meetingLatitude, let meetingLongitude else { return coordinate }
-        return CLLocationCoordinate2D(latitude: meetingLatitude, longitude: meetingLongitude)
+        if let meetingLatitude, let meetingLongitude {
+            return CLLocationCoordinate2D(latitude: meetingLatitude, longitude: meetingLongitude)
+        }
+        return CLLocationCoordinate2D(latitude: areaLatitude, longitude: areaLongitude)
     }
 
     var originCoordinate: CLLocationCoordinate2D? {
@@ -78,34 +98,35 @@ struct HelpRequest: Codable, Identifiable, Hashable {
     }
 }
 
-/// Mensaje del chat de una petición de ayuda (tabla `help_messages`).
+/// Mensaje del chat de una petición (tabla `help_messages`).
+/// En el servidor solo hay texto cifrado; `text` se rellena al descifrar.
 struct HelpMessage: Codable, Identifiable, Hashable {
     var id: UUID
     var requestId: UUID
     var senderId: UUID?
-    var senderName: String?
-    var text: String
+    var ciphertext: String
     var createdAt: Date?
+
+    /// Texto descifrado localmente.
+    var text: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case requestId = "request_id"
         case senderId = "sender_id"
-        case senderName = "sender_name"
-        case text
+        case ciphertext
         case createdAt = "created_at"
     }
 }
 
-/// Peticiones de ayuda: crear, ver cercanas, aceptar, chatear y finalizar.
-/// Versión de prueba: los ayudantes se designan desde Supabase (tabla `helpers`)
-/// y las listas se refrescan por sondeo.
+/// Peticiones de ayuda cifradas de extremo a extremo: Supabase actúa solo de
+/// "buzón" reemplazable. Crear, descubrir por zona, aceptar (intercambio de
+/// claves), chatear cifrado y borrar todo al terminar.
 enum HelperService {
     private static let table = "help_requests"
     private static let messagesTable = "help_messages"
 
     /// ¿El usuario actual está dado de alta como ayudante (tabla `helpers`)?
-    /// El alta se gestiona fuera de la app (panel de Supabase).
     static func isRegisteredHelper() async -> Bool {
         struct Row: Codable { let userId: UUID
             enum CodingKeys: String, CodingKey { case userId = "user_id" }
@@ -120,52 +141,59 @@ enum HelperService {
         return !(rows ?? []).isEmpty
     }
 
-    /// Identificador del usuario actual (para distinguir mensajes propios).
+    /// Identificador del usuario actual (para distinguir roles y mensajes).
     static func currentUserId() async -> UUID? {
         try? await supabase.auth.session.user.id
     }
 
-    // MARK: - Chat
+    // MARK: - Descifrado local de una petición
 
-    static func fetchMessages(requestId: UUID) async -> [HelpMessage] {
-        let messages: [HelpMessage]? = try? await supabase
-            .from(messagesTable)
-            .select()
-            .eq("request_id", value: requestId)
-            .order("created_at", ascending: true)
-            .limit(100)
-            .execute()
-            .value
-        return messages ?? []
+    /// Clave simétrica de la petición para el usuario actual, si participa.
+    static func symmetricKey(for request: HelpRequest) async -> SymmetricKey? {
+        guard let myId = await currentUserId(),
+              let priv = HelpCrypto.privateKey(for: request.id) else { return nil }
+        let otherPub = (myId == request.requesterId) ? request.helperPubkey : request.requesterPubkey
+        guard let otherPub else { return nil }
+        return HelpCrypto.symmetricKey(requestId: request.id, myPrivateKey: priv, otherPublicKeyBase64: otherPub)
     }
 
-    /// Últimos mensajes de los chats del usuario actual (las políticas de
-    /// Supabase ya limitan la consulta a las peticiones en las que participa).
-    static func fetchRecentMessages(limit: Int = 25) async -> [HelpMessage] {
-        let messages: [HelpMessage]? = try? await supabase
-            .from(messagesTable)
-            .select()
-            .order("created_at", ascending: false)
-            .limit(limit)
-            .execute()
-            .value
-        return messages ?? []
+    /// Rellena los campos descifrados que el usuario actual pueda leer.
+    static func decorate(_ request: HelpRequest) async -> HelpRequest {
+        var request = request
+        let myId = await currentUserId()
+
+        // El solicitante siempre conoce sus propios datos (guardados en local).
+        if myId == request.requesterId, let mine = HelpCrypto.pendingDetails(for: request.id) {
+            apply(mine, to: &request)
+        }
+
+        guard let key = await symmetricKey(for: request) else { return request }
+        if let details = HelpCrypto.openJSON(HelperDetails.self, from: request.helperPayload, with: key) {
+            request.helperName = details.name
+        }
+        if let details = HelpCrypto.openJSON(RequesterDetails.self, from: request.requesterPayload, with: key) {
+            apply(details, to: &request)
+        }
+        return request
     }
 
-    static func sendMessage(requestId: UUID, text: String, senderName: String?) async {
-        let message = HelpMessage(
-            id: UUID(),
-            requestId: requestId,
-            senderId: nil, // lo rellena Supabase con auth.uid()
-            senderName: senderName,
-            text: text,
-            createdAt: nil
-        )
-        _ = try? await supabase.from(messagesTable).insert(message).execute()
+    private static func apply(_ details: RequesterDetails, to request: inout HelpRequest) {
+        request.requesterName = details.name
+        request.originLatitude = details.originLatitude
+        request.originLongitude = details.originLongitude
+        request.destinationLatitude = details.destinationLatitude
+        request.destinationLongitude = details.destinationLongitude
+        request.meetingPoint = details.meetingPoint
+        request.meetingName = details.meetingName
+        request.meetingLatitude = details.meetingLatitude
+        request.meetingLongitude = details.meetingLongitude
     }
 
-    /// Crea una petición de ayuda con el trayecto completo del usuario
-    /// (origen → destino) y el punto de encuentro elegido.
+    // MARK: - Crear (solicitante)
+
+    /// Publica una petición anónima: zona aproximada + destino + clave pública.
+    /// El trayecto exacto y el nombre quedan en el dispositivo, cifrándose para
+    /// el ayudante solo cuando alguien acepta.
     static func create(
         placeName: String,
         coordinate: CLLocationCoordinate2D,
@@ -176,45 +204,83 @@ enum HelperService {
         meetingName: String?,
         meetingCoordinate: CLLocationCoordinate2D
     ) async -> HelpRequest? {
-        let request = HelpRequest(
-            id: UUID(),
-            requesterId: nil, // lo rellena Supabase con auth.uid()
-            requesterName: requesterName,
-            placeName: placeName,
-            latitude: coordinate.latitude,
-            longitude: coordinate.longitude,
-            disabilityType: disabilityType.rawValue,
-            status: .pending,
-            helperId: nil,
-            helperName: nil,
-            createdAt: nil,
+        let id = UUID()
+        let privateKey = Curve25519.KeyAgreement.PrivateKey()
+        HelpCrypto.savePrivateKey(privateKey, for: id)
+
+        let details = RequesterDetails(
+            name: requesterName,
             originLatitude: origin?.latitude,
             originLongitude: origin?.longitude,
+            destinationLatitude: coordinate.latitude,
+            destinationLongitude: coordinate.longitude,
             meetingPoint: meeting.rawValue,
             meetingName: meetingName,
             meetingLatitude: meetingCoordinate.latitude,
             meetingLongitude: meetingCoordinate.longitude
         )
+        HelpCrypto.savePendingDetails(details, for: id)
+
+        let request = HelpRequest(
+            id: id,
+            requesterId: nil, // lo rellena Supabase con auth.uid()
+            helperId: nil,
+            status: .pending,
+            disabilityType: disabilityType.rawValue,
+            areaLatitude: HelpCrypto.approximate(meetingCoordinate.latitude),
+            areaLongitude: HelpCrypto.approximate(meetingCoordinate.longitude),
+            placeName: placeName,
+            requesterPubkey: privateKey.publicKey.rawRepresentation.base64EncodedString(),
+            helperPubkey: nil,
+            requesterPayload: nil,
+            helperPayload: nil,
+            createdAt: nil
+        )
         do {
             try await supabase.from(table).insert(request).execute()
-            return request
+            return await decorate(request)
         } catch {
+            HelpCrypto.forget(requestId: id)
             return nil
         }
     }
 
-    /// Estado actual de una petición (para el que la creó).
+    /// Estado actual de una petición (para el que la creó). Si acaban de
+    /// aceptarla, sube el trayecto cifrado para el ayudante.
     static func fetch(id: UUID) async -> HelpRequest? {
-        try? await supabase
+        let request: HelpRequest? = try? await supabase
             .from(table)
             .select()
             .eq("id", value: id)
             .single()
             .execute()
             .value
+        guard var request else { return nil }
+        request = await decorate(request)
+        await uploadRequesterPayloadIfNeeded(request)
+        return request
     }
 
-    /// Peticiones pendientes cercanas (para ayudantes), ordenadas por distancia.
+    /// Segunda fase del intercambio: con el ayudante aceptado, el solicitante
+    /// cifra su nombre y trayecto exacto para él.
+    private static func uploadRequesterPayloadIfNeeded(_ request: HelpRequest) async {
+        guard request.status == .accepted,
+              request.requesterPayload == nil,
+              request.helperPubkey != nil,
+              let myId = await currentUserId(), myId == request.requesterId,
+              let details = HelpCrypto.pendingDetails(for: request.id),
+              let key = await symmetricKey(for: request),
+              let payload = HelpCrypto.sealJSON(details, with: key) else { return }
+        _ = try? await supabase
+            .from(table)
+            .update(["requester_payload": payload])
+            .eq("id", value: request.id)
+            .execute()
+    }
+
+    // MARK: - Descubrir y aceptar (ayudante)
+
+    /// Peticiones pendientes cercanas, ordenadas por distancia a la zona.
     static func fetchPending(near center: CLLocationCoordinate2D?, radiusKm: Double = 20) async -> [HelpRequest] {
         let requests: [HelpRequest]? = try? await supabase
             .from(table)
@@ -233,7 +299,7 @@ enum HelperService {
             .sorted { distance(from: here, to: $0) < distance(from: here, to: $1) }
     }
 
-    /// Peticiones que este ayudante tiene aceptadas y sin finalizar.
+    /// Peticiones que este ayudante tiene aceptadas, ya descifradas.
     static func fetchAccepted() async -> [HelpRequest] {
         guard let userId = try? await supabase.auth.session.user.id else { return [] }
         let requests: [HelpRequest]? = try? await supabase
@@ -243,40 +309,106 @@ enum HelperService {
             .eq("helper_id", value: userId)
             .execute()
             .value
-        return requests ?? []
+        var decorated: [HelpRequest] = []
+        for request in requests ?? [] {
+            decorated.append(await decorate(request))
+        }
+        return decorated
     }
 
-    /// Acepta una petición (solo si sigue pendiente).
+    /// Acepta una petición: genera claves, cifra el nombre del ayudante y
+    /// publica la clave pública para que el solicitante responda cifrado.
     static func accept(_ request: HelpRequest, helperName: String?) async -> Bool {
         guard let userId = try? await supabase.auth.session.user.id else { return false }
+
+        let privateKey = Curve25519.KeyAgreement.PrivateKey()
+        guard let key = HelpCrypto.symmetricKey(
+            requestId: request.id,
+            myPrivateKey: privateKey,
+            otherPublicKeyBase64: request.requesterPubkey
+        ), let payload = HelpCrypto.sealJSON(HelperDetails(name: helperName), with: key) else {
+            return false
+        }
+        HelpCrypto.savePrivateKey(privateKey, for: request.id)
+
         do {
             try await supabase
                 .from(table)
                 .update([
                     "status": HelpRequest.Status.accepted.rawValue,
                     "helper_id": userId.uuidString,
-                    "helper_name": helperName ?? "Un ayudante"
+                    "helper_pubkey": privateKey.publicKey.rawRepresentation.base64EncodedString(),
+                    "helper_payload": payload
                 ])
                 .eq("id", value: request.id)
                 .eq("status", value: HelpRequest.Status.pending.rawValue)
                 .execute()
             return true
         } catch {
+            HelpCrypto.forget(requestId: request.id)
             return false
         }
     }
 
-    static func updateStatus(_ id: UUID, to status: HelpRequest.Status) async {
-        _ = try? await supabase
-            .from(table)
-            .update(["status": status.rawValue])
-            .eq("id", value: id)
-            .execute()
+    /// Termina una petición (completada o cancelada): borra la fila, sus
+    /// mensajes (en cascada) y la clave local. Para la otra persona, la
+    /// desaparición de la fila equivale al fin de la ayuda.
+    static func close(_ id: UUID) async {
+        _ = try? await supabase.from(table).delete().eq("id", value: id).execute()
+        HelpCrypto.forget(requestId: id)
     }
 
-    /// Distancia del ayudante al punto de encuentro de la petición.
+    /// Distancia del ayudante al punto de encuentro (o a su zona aproximada).
     static func distance(from location: CLLocation, to request: HelpRequest) -> CLLocationDistance {
         let meeting = request.meetingCoordinate
         return location.distance(from: CLLocation(latitude: meeting.latitude, longitude: meeting.longitude))
+    }
+
+    // MARK: - Chat cifrado
+
+    /// Mensajes de una petición, descifrados para los participantes.
+    static func fetchMessages(request: HelpRequest) async -> [HelpMessage] {
+        let messages: [HelpMessage]? = try? await supabase
+            .from(messagesTable)
+            .select()
+            .eq("request_id", value: request.id)
+            .order("created_at", ascending: true)
+            .limit(100)
+            .execute()
+            .value
+        guard var messages else { return [] }
+        if let key = await symmetricKey(for: request) {
+            for index in messages.indices {
+                if let data = HelpCrypto.open(messages[index].ciphertext, with: key) {
+                    messages[index].text = String(data: data, encoding: .utf8)
+                }
+            }
+        }
+        return messages
+    }
+
+    /// Últimos mensajes de los chats del usuario (para notificar; sin descifrar).
+    static func fetchRecentMessages(limit: Int = 25) async -> [HelpMessage] {
+        let messages: [HelpMessage]? = try? await supabase
+            .from(messagesTable)
+            .select()
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+        return messages ?? []
+    }
+
+    static func sendMessage(request: HelpRequest, text: String) async {
+        guard let key = await symmetricKey(for: request),
+              let ciphertext = HelpCrypto.seal(Data(text.utf8), with: key) else { return }
+        let message = HelpMessage(
+            id: UUID(),
+            requestId: request.id,
+            senderId: nil, // lo rellena Supabase con auth.uid()
+            ciphertext: ciphertext,
+            createdAt: nil
+        )
+        _ = try? await supabase.from(messagesTable).insert(message).execute()
     }
 }

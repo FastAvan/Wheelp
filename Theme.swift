@@ -9,10 +9,13 @@ extension Color {
 struct WheelpLogo: View {
     enum Variant { case black, white, green }
     var variant: Variant = .black
+    @Environment(\.colorScheme) private var colorScheme
 
     private var assetName: String {
         switch variant {
-        case .black: "logo_black"
+        // La variante negra va sobre fondos del sistema: en modo oscuro
+        // pasa sola al logo blanco para que siga viéndose.
+        case .black: colorScheme == .dark ? "logo_white" : "logo_black"
         case .white: "logo_white"
         case .green: "logo_green"
         }

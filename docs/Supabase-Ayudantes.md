@@ -7,6 +7,34 @@ gestionada fuera de la app** (tabla `helpers`). Las listas se actualizan por son
 > o llega un mensaje, PERO solo mientras está en ejecución. El push real (APNs)
 > requiere la cuenta de pago del Apple Developer Program.
 
+## 4ª parte — ENDURECER las políticas de `help_requests` (ejecutar sí o sí)
+
+La política original de actualización permitía a cualquier usuario autenticado
+modificar una petición pendiente (cualquier campo, no solo aceptarla). Estas
+la sustituyen: los implicados gestionan su petición, y aceptar solo pueden
+hacerlo los ayudantes dados de alta, asignándose a sí mismos.
+
+```sql
+drop policy if exists "actualizar_implicados" on public.help_requests;
+
+-- El solicitante y el ayudante asignado gestionan su propia petición.
+create policy "actualizar_propios"
+  on public.help_requests for update
+  to authenticated
+  using (auth.uid() = requester_id or auth.uid() = helper_id);
+
+-- Aceptar una petición pendiente: solo usuarios de la tabla helpers,
+-- y únicamente para asignársela a sí mismos y marcarla como aceptada.
+create policy "aceptar_pendientes"
+  on public.help_requests for update
+  to authenticated
+  using (
+    status = 'pending'
+    and exists (select 1 from public.helpers h where h.user_id = auth.uid())
+  )
+  with check (helper_id = auth.uid() and status = 'accepted');
+```
+
 ## 3ª parte — NUEVAS columnas de trayecto y punto de encuentro (ejecutar si ya creaste `help_requests`)
 
 La petición ahora lleva el **origen** del usuario y el **punto de encuentro** que

@@ -11,7 +11,15 @@ enum SupabaseConfig {
 }
 
 /// Cliente compartido de Supabase para toda la app.
+/// `emitLocalSessionAsInitialSession` adopta el comportamiento nuevo del SDK
+/// (emitir la sesión local guardada al arrancar) y silencia su aviso en
+/// ejecución; encaja con nuestro arranque instantáneo con `currentSession`.
 let supabase = SupabaseClient(
     supabaseURL: SupabaseConfig.url,
-    supabaseKey: SupabaseConfig.anonKey
+    supabaseKey: SupabaseConfig.anonKey,
+    options: SupabaseClientOptions(
+        auth: SupabaseClientOptions.AuthOptions(
+            emitLocalSessionAsInitialSession: true
+        )
+    )
 )

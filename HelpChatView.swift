@@ -101,11 +101,11 @@ struct HelpChatView: View {
             if isMine(message) { Spacer(minLength: 40) }
             VStack(alignment: .leading, spacing: 2) {
                 if !isMine(message) {
-                    Text(message.senderName ?? "Mensaje")
+                    Text(chatTitle)
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
                 }
-                Text(message.text)
+                Text(message.text ?? "🔒 Mensaje cifrado")
                     .font(.body)
                     .foregroundStyle(isMine(message) ? .white : .primary)
                     .padding(.horizontal, 14)
@@ -118,7 +118,7 @@ struct HelpChatView: View {
             if !isMine(message) { Spacer(minLength: 40) }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(isMine(message) ? "Tú" : (message.senderName ?? "Mensaje")): \(message.text)")
+        .accessibilityLabel("\(isMine(message) ? "Tú" : chatTitle): \(message.text ?? "mensaje cifrado")")
     }
 
     private func send() {
@@ -126,11 +126,8 @@ struct HelpChatView: View {
         guard !text.isEmpty else { return }
         draft = ""
         Task {
-            await HelperService.sendMessage(
-                requestId: request.id,
-                text: text,
-                senderName: appState.publicName
-            )
+            // El texto viaja cifrado; el nombre ya se intercambió cifrado al aceptar.
+            await HelperService.sendMessage(request: request, text: text)
             await refresh()
         }
     }
@@ -138,7 +135,7 @@ struct HelpChatView: View {
     private func refresh() async {
         // Con el chat abierto no se notifica: los mensajes se ven llegar.
         // Fuera del chat avisa ChatNotifier.
-        messages = await HelperService.fetchMessages(requestId: request.id)
+        messages = await HelperService.fetchMessages(request: request)
         isLoading = false
     }
 

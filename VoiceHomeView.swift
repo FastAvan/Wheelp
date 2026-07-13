@@ -21,7 +21,13 @@ struct VoiceHomeView: View {
     @State private var commandMatched = false
     /// Esperando que el usuario diga dónde encontrarse con el ayudante.
     @State private var awaitingMeetingPoint = false
+    /// Esperando el consentimiento hablado para compartir nombre y ubicación.
+    @State private var awaitingConsent = false
+    /// Punto de encuentro elegido, pendiente de consentimiento.
+    @State private var pendingMeeting: HelpRequest.MeetingPoint?
     @State private var showHelpSetup = false
+    /// Al terminar una ruta se invita a aportar la accesibilidad del destino.
+    @State private var finishedContribution: ContributionTarget?
 
     enum ListenMode { case destination, command }
     enum Phase { case idle, results, confirm, routing }
@@ -158,6 +164,16 @@ struct VoiceHomeView: View {
                         )
                     }
                 }
+            }
+        }
+        // Invitación a aportar la accesibilidad del destino recién visitado.
+        .sheet(item: $finishedContribution) { target in
+            ContributeAccessibilityView(
+                profile: profile,
+                placeName: target.item.name ?? "este lugar",
+                initial: [:]
+            ) { features in
+                Task { await model.submitContribution(for: target.item, features, profile: profile) }
             }
         }
         .sheet(isPresented: $showContribute) {
@@ -304,6 +320,15 @@ struct VoiceHomeView: View {
                             }
                         }
                         Spacer()
+                        if let score = model.score(for: item) {
+                            Text("\(score)%")
+                                .font(.headline.bold())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(DestinationAccessibility.scoreColor(score), in: Capsule())
+                                .accessibilityLabel("Accesibilidad \(score) por ciento")
+                        }
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -443,7 +468,7 @@ struct VoiceHomeView: View {
                 .multilineTextAlignment(.center)
 
             if let route = model.route {
-                Text("\(formattedDistance(route.distance)) · \(formattedTime(route.expectedTravelTime))")
+                Text("\(formattedDistance(route.distance)) · \(formattedTime(model.estimatedTravelTime(for: route, type: profile.type)))")
                     .font(.title2)
                     .foregroundStyle(.secondary)
             }
@@ -626,6 +651,8 @@ struct VoiceHomeView: View {
     private func changeDestination() {
         commandMatched = true
         awaitingMeetingPoint = false
+        awaitingConsent = false
+        pendingMeeting = nil
         recognizer.stop()
         withAnimation { model.reset() }
         if voiceEnabled {
@@ -638,15 +665,25 @@ struct VoiceHomeView: View {
     private func finishRoute() {
         commandMatched = true
         awaitingMeetingPoint = false
+        awaitingConsent = false
+        pendingMeeting = nil
         recognizer.stop()
+        // Si venía navegando, acaba de estar en el destino: se le invita a
+        // aportar su accesibilidad.
+        let finished = model.isNavigating ? model.destination : nil
         withAnimation { model.reset() }
-        speech.announce("Ruta finalizada.")
+        if let finished {
+            finishedContribution = ContributionTarget(item: finished)
+            speech.announce("Ruta finalizada. Si conoces la accesibilidad de \(finished.name ?? "este lugar"), puedes marcarla en la ventana que se ha abierto, o cerrarla.")
+        } else {
+            speech.announce("Ruta finalizada.")
+        }
     }
 
     private func runTextSearch() {
         let text = model.query.trimmingCharacters(in: .whitespaces)
         guard text.count >= 3 else { return }
-        model.search(near: location.lastLocation?.coordinate)
+        model.search(near: location.lastLocation?.coordinate, profile: profile)
     }
 
     // MARK: - Reconocimiento de voz
@@ -686,6 +723,10 @@ struct VoiceHomeView: View {
     /// Procesa la transcripción en vivo cuando esperamos un comando.
     private func handleCommandTranscript(_ text: String) {
         guard listenMode == .command, !text.isEmpty, !commandMatched else { return }
+        if awaitingConsent {
+            handleConsentTranscript(text)
+            return
+        }
         if awaitingMeetingPoint {
             handleMeetingTranscript(text)
             return
@@ -710,7 +751,7 @@ struct VoiceHomeView: View {
                 withAnimation { model.preview(favorite.mapItem, profile: profile) }
             } else {
                 model.query = text
-                model.search(near: location.lastLocation?.coordinate)
+                model.search(near: location.lastLocation?.coordinate, profile: profile)
                 speech.announce("Buscando \(text).")
             }
             return
@@ -719,9 +760,10 @@ struct VoiceHomeView: View {
         // En modo comando seguimos escuchando mientras haya opciones, confirmación
         // o el resumen de ruta en pantalla. Durante la navegación NO: el micrófono
         // queda apagado y se activa solo con el botón.
-        // Mientras se espera el punto de encuentro, la escucha también se
-        // reintenta aunque estemos navegando.
-        let autoListenPhase = awaitingMeetingPoint || phase == .results || phase == .confirm
+        // Mientras se espera el punto de encuentro o el consentimiento, la
+        // escucha también se reintenta aunque estemos navegando.
+        let autoListenPhase = awaitingMeetingPoint || awaitingConsent
+            || phase == .results || phase == .confirm
             || (phase == .routing && !model.isNavigating)
         if listenMode == .command, voiceEnabled, !commandMatched, autoListenPhase {
             Task {
@@ -830,7 +872,36 @@ struct VoiceHomeView: View {
         awaitingMeetingPoint = false
         commandMatched = true
         recognizer.stop()
-        Task { await performHelpRequest(meeting) }
+        // Consentimiento explícito antes de compartir nada con los ayudantes.
+        pendingMeeting = meeting
+        awaitingConsent = true
+        speech.announce("Para avisar a los ayudantes compartiré tu nombre y las ubicaciones de este trayecto, solo para esta petición. ¿Estás de acuerdo? Di sí o no.") {
+            listenForCommandIfEnabled()
+        }
+    }
+
+    /// Interpreta la respuesta al consentimiento ("sí" envía la petición).
+    private func handleConsentTranscript(_ raw: String) {
+        let normalized = raw.folding(options: .diacriticInsensitive, locale: .current).lowercased()
+        let words = Set(normalized.split { !$0.isLetter && !$0.isNumber }.map(String.init))
+        func has(_ options: Set<String>) -> Bool { !words.isDisjoint(with: options) }
+
+        if has(["no", "cancelar", "cancela"]) {
+            awaitingConsent = false
+            pendingMeeting = nil
+            commandMatched = true
+            recognizer.stop()
+            speech.announce("Vale, no comparto nada y no pido ayudante.") {
+                if !model.isNavigating { listenForCommandIfEnabled() }
+            }
+        } else if has(["si", "acepto", "acuerdo", "vale", "claro", "adelante"]) {
+            guard let meeting = pendingMeeting else { return }
+            awaitingConsent = false
+            pendingMeeting = nil
+            commandMatched = true
+            recognizer.stop()
+            Task { await performHelpRequest(meeting) }
+        }
     }
 
     /// Envía la petición con el trayecto completo y el punto de encuentro.
@@ -873,9 +944,14 @@ struct VoiceHomeView: View {
     private func announceResults(_ results: [MKMapItem], then: @escaping () -> Void) {
         let top = results.prefix(5)
         var text = "He encontrado \(top.count) "
-        text += top.count == 1 ? "resultado. " : "resultados. "
+        text += top.count == 1 ? "resultado" : "resultados"
+        text += ", ordenados por accesibilidad. "
         for (index, item) in top.enumerated() {
-            text += "\(index + 1): \(item.name ?? "lugar"). "
+            text += "\(index + 1): \(item.name ?? "lugar")"
+            if let score = model.score(for: item) {
+                text += ", \(score) por ciento accesible"
+            }
+            text += ". "
         }
         text += voiceEnabled ? "Di el número o tócalo." : "Toca tu opción."
         speech.announce(text, then: then)
@@ -917,7 +993,7 @@ struct VoiceHomeView: View {
             return
         }
         var text = "Ruta calculada. \(formattedDistance(route.distance)), "
-        text += "\(formattedTime(route.expectedTravelTime)) a pie. "
+        text += "\(formattedTime(model.estimatedTravelTime(for: route, type: profile.type))) a tu ritmo. "
         if let first = route.steps.first(where: { !$0.instructions.isEmpty }) {
             text += "Comienza: \(first.instructions). "
         }
@@ -940,8 +1016,8 @@ struct VoiceHomeView: View {
             return
         }
         var text = "Quedan \(formattedDistance(remaining))"
-        if let time = model.remainingTime(from: location.lastLocation) {
-            text += ", unos \(formattedTime(time)) caminando"
+        if let time = model.remainingTime(from: location.lastLocation, type: profile.type) {
+            text += ", unos \(formattedTime(time)) a tu ritmo"
         }
         text += ", para llegar a \(model.destination?.name ?? "tu destino")."
         speech.announce(text)

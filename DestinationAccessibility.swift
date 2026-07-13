@@ -59,7 +59,10 @@ struct DestinationAccessibility {
     /// Si hay al menos un criterio con información (no todo "sin datos").
     var hasAnyKnownFeature: Bool { features.contains { $0.status != .unknown } }
 
-    var scoreColor: Color {
+    var scoreColor: Color { Self.scoreColor(score) }
+
+    /// Color de una puntuación 0–100 (también para insignias en búsquedas).
+    static func scoreColor(_ score: Int) -> Color {
         switch score {
         case 70...: .wheelpGreen
         case 40..<70: .orange

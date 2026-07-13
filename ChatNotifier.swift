@@ -46,9 +46,11 @@ final class ChatNotifier {
             guard primed,
                   message.senderId != myUserId,
                   message.requestId != openChatRequestId else { continue }
+            // El contenido va cifrado de extremo a extremo: el aviso local no
+            // necesita descifrarlo (y así tampoco aparece en la pantalla bloqueada).
             NotificationService.notify(
-                title: message.senderName ?? "Nuevo mensaje",
-                body: message.text
+                title: "Wheelp",
+                body: "Tienes un mensaje nuevo en tu chat de ayuda."
             )
         }
         primed = true

@@ -81,8 +81,8 @@ struct HelperRequestsView: View {
             Text("Trayecto: hasta \(request.placeName)")
                 .font(.subheadline)
             Label(
-                "Encuentro \(request.meetingPointLabel): \(request.meetingName ?? request.placeName)",
-                systemImage: "figure.2"
+                "Recogida en zona aproximada; el punto exacto se descifra al aceptar",
+                systemImage: "lock.shield"
             )
             .font(.subheadline.weight(.medium))
             .foregroundStyle(Color.wheelpGreen)
@@ -114,7 +114,7 @@ struct HelperRequestsView: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(request.requesterName ?? "Alguien") va hacia \(request.placeName) y quiere encontrarse \(request.meetingPointLabel)")
+        .accessibilityLabel("Alguien va hacia \(request.placeName) y necesita ayuda en una zona cercana")
     }
 
     private func acceptedRow(_ request: HelpRequest) -> some View {
@@ -161,7 +161,8 @@ struct HelperRequestsView: View {
 
                 Button {
                     Task {
-                        await HelperService.updateStatus(request.id, to: .completed)
+                        // Completar borra la petición, el chat y la clave.
+                        await HelperService.close(request.id)
                         await refresh()
                     }
                 } label: {
