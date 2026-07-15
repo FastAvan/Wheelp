@@ -3,26 +3,28 @@ import MapKit
 
 /// Página previa a pedir un ayudante: muestra el trayecto del usuario y le
 /// pide elegir dónde quiere encontrarse con el ayudante (en el punto de
-/// inicio, en el destino o en otro punto de la ruta). Solo entonces se lanza
-/// el aviso a los ayudantes, con toda la información del trayecto.
+/// inicio, en el destino o en otro punto de la ruta). El usuario también puede
+/// programar una cita para una fecha y hora concretas.
 struct HelpRequestSetupView: View {
     let profile: AccessibilityProfile
     let destinationName: String
-    /// Posición actual del usuario (origen del trayecto), si se conoce.
     let originCoordinate: CLLocationCoordinate2D?
     let destinationCoordinate: CLLocationCoordinate2D
-    /// Pasos de la ruta calculada (vacío si aún no hay ruta).
     let steps: [MKRoute.Step]
-    let onConfirm: (HelpRequest.MeetingPoint, String?, CLLocationCoordinate2D) -> Void
+    let onConfirm: (HelpRequest.MeetingPoint, String?, CLLocationCoordinate2D, Date?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var meeting: HelpRequest.MeetingPoint = .destination
     @State private var selectedRouteIndex = 0
-    /// La petición no se envía sin consentimiento explícito para compartir
-    /// nombre y ubicaciones con los ayudantes.
     @State private var consentAccepted = false
+    @State private var isScheduled = false
+    @State private var scheduledDate: Date = Calendar.current.date(
+        byAdding: .hour, value: 1, to: Date()
+    ) ?? Date().addingTimeInterval(3600)
 
-    /// Puntos intermedios elegibles: el final de cada paso con indicación.
+    private var minDate: Date { Date().addingTimeInterval(30 * 60) }
+    private var maxDate: Date { Date().addingTimeInterval(7 * 24 * 3600) }
+
     private var routeChoices: [(title: String, coordinate: CLLocationCoordinate2D)] {
         steps.compactMap { step in
             guard !step.instructions.isEmpty, step.polyline.pointCount > 0 else { return nil }
@@ -34,6 +36,7 @@ struct HelpRequestSetupView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // MARK: Trayecto
                 Section("Tu trayecto") {
                     Label("Desde: tu ubicación actual", systemImage: "location.fill")
                         .font(profile.bodyFont)
@@ -41,6 +44,36 @@ struct HelpRequestSetupView: View {
                         .font(profile.bodyFont)
                 }
 
+                // MARK: Cuándo
+                Section {
+                    Picker("Cuándo", selection: $isScheduled) {
+                        Text("Ahora").tag(false)
+                        Text("Programar").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .font(profile.bodyFont)
+
+                    if isScheduled {
+                        DatePicker(
+                            "Fecha y hora",
+                            selection: $scheduledDate,
+                            in: minDate...maxDate,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .font(profile.bodyFont)
+                        .environment(\.locale, Locale(identifier: "es"))
+                    }
+                } header: {
+                    Text("¿Cuándo necesitas al ayudante?")
+                } footer: {
+                    if isScheduled {
+                        Text("El ayudante verá la cita con suficiente antelación. Recibirás un aviso cuando alguien la acepte.")
+                    } else {
+                        Text("Los ayudantes cercanos recibirán el aviso ahora mismo.")
+                    }
+                }
+
+                // MARK: Punto de encuentro
                 Section {
                     meetingOption(
                         .origin,
@@ -82,6 +115,7 @@ struct HelpRequestSetupView: View {
                     Text("El ayudante verá tu trayecto completo y el punto de encuentro que elijas.")
                 }
 
+                // MARK: Consentimiento
                 Section {
                     Button {
                         consentAccepted.toggle()
@@ -103,14 +137,19 @@ struct HelpRequestSetupView: View {
                     Text("Sin tu consentimiento no se envía nada. El resto de tus datos nunca sale de tu iPhone.")
                 }
 
+                // MARK: Botón confirmar
                 Section {
                     Button {
                         let (name, coordinate) = resolvedMeeting()
-                        onConfirm(meeting, name, coordinate)
+                        let date = isScheduled ? scheduledDate : nil
+                        onConfirm(meeting, name, coordinate, date)
                         dismiss()
                     } label: {
-                        Label("Pedir ayudante", systemImage: "hand.raised.fill")
-                            .frame(maxWidth: .infinity)
+                        Label(
+                            isScheduled ? "Programar cita" : "Pedir ayudante",
+                            systemImage: isScheduled ? "calendar.badge.clock" : "hand.raised.fill"
+                        )
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.wheelpPrimary)
                     .frame(maxWidth: .infinity, minHeight: profile.controlMinHeight)
@@ -120,7 +159,7 @@ struct HelpRequestSetupView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }
-            .navigationTitle("Pedir ayudante")
+            .navigationTitle(isScheduled ? "Programar ayudante" : "Pedir ayudante")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -168,7 +207,6 @@ struct HelpRequestSetupView: View {
         .accessibilityAddTraits(meeting == option ? .isSelected : [])
     }
 
-    /// Nombre y coordenada del punto de encuentro elegido.
     private func resolvedMeeting() -> (String?, CLLocationCoordinate2D) {
         switch meeting {
         case .origin:

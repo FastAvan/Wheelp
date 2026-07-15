@@ -104,7 +104,8 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         origin: CLLocationCoordinate2D?,
         meeting: HelpRequest.MeetingPoint,
         meetingName: String?,
-        meetingCoordinate: CLLocationCoordinate2D
+        meetingCoordinate: CLLocationCoordinate2D,
+        scheduledAt: Date? = nil
     ) async {
         guard activeHelpRequest == nil else { return }
         guard let item = destination ?? previewItem else { return }
@@ -117,7 +118,8 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
             origin: origin,
             meeting: meeting,
             meetingName: meetingName,
-            meetingCoordinate: meetingCoordinate
+            meetingCoordinate: meetingCoordinate,
+            scheduledAt: scheduledAt
         ) {
             activeHelpRequest = request
             startHelpPolling()
@@ -185,8 +187,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     }
 
     /// Sugerencias de autocompletado mientras se escribe (buscador del mapa).
-    /// Usa MKLocalSearchCompleter, que ofrece muchas más opciones que una
-    /// búsqueda directa con texto parcial.
     func suggest(near center: CLLocationCoordinate2D?) {
         let text = query.trimmingCharacters(in: .whitespaces)
         guard text.count >= 2 else {
@@ -229,9 +229,8 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         resultScores[AccessibilityService.placeKey(for: item)]
     }
 
-    /// Puntúa los resultados con los mismos datos que la ficha (Google +
-    /// aportaciones) y los ordena: mejor accesibilidad conocida primero,
-    /// sin datos al final manteniendo la relevancia de la búsqueda.
+    /// Puntúa los resultados con los mismos datos que la ficha y los ordena
+    /// por accesibilidad: mejor conocida primero, sin datos al final.
     private func rankByAccessibility(
         _ items: [MKMapItem],
         profile: AccessibilityProfile
@@ -281,8 +280,7 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         return access.hasAnyKnownFeature ? access.score : nil
     }
 
-    /// Busca lugares que coincidan con el texto completo (dictado por voz o
-    /// tecla "buscar") y los ordena por accesibilidad para el perfil.
+    /// Busca lugares que coincidan con el texto completo y los ordena por accesibilidad.
     func search(near center: CLLocationCoordinate2D?, profile: AccessibilityProfile) {
         searchTask?.cancel()
         completions = []
@@ -314,7 +312,7 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
                 results = ranked.items
                 resultScores = ranked.scores
             } catch {
-                // Búsqueda cancelada o sin resultados: dejamos la lista como está.
+                // Búsqueda cancelada o sin resultados.
             }
         }
     }
@@ -339,7 +337,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     private func loadAccessibility(for item: MKMapItem, profile: AccessibilityProfile) async {
         let coordinate = item.placemark.coordinate
 
-        // Fuente principal: Google Places. Aportaciones de comunidad en paralelo.
         async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
         let key = AccessibilityService.placeKey(for: item)
         let reports = (try? await AccessibilityService.fetchReports(
@@ -351,7 +348,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         var base = google.statuses
         var sourceName: String? = google.found ? "Google Places" : nil
 
-        // Respaldo gratuito: si Google no aporta datos, probamos OpenStreetMap.
         if base.isEmpty {
             let osmTags = await OSMAccessibilityService.fetchTags(near: coordinate, name: item.name)
             let osmStatuses = DestinationAccessibility.osmStatuses(for: profile, tags: osmTags)
@@ -368,7 +364,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
             profile: profile
         )
 
-        // Solo aplica si seguimos en la ficha del mismo lugar.
         guard previewItem === item else { return }
         previewAccessibility = accessibility
         isLoadingAccessibility = false
@@ -386,14 +381,12 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
             isLoadingAccessibility = true
             await loadAccessibility(for: item, profile: profile)
         } catch {
-            // Antes el fallo era silencioso y parecía que la aportación no hacía nada.
             print("Wheelp: error al guardar la aportación de accesibilidad: \(error)")
             contributionNotice = "No se pudo guardar tu aportación. Comprueba la conexión e inténtalo de nuevo."
         }
     }
 
-    /// Aportación para un lugar concreto aunque ya no haya ficha abierta
-    /// (p. ej. el destino recién visitado al finalizar la ruta).
+    /// Aportación para un lugar concreto aunque ya no haya ficha abierta.
     func submitContribution(
         for item: MKMapItem,
         _ features: [String: DestinationAccessibility.Feature.Status],
@@ -407,8 +400,14 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
-    /// Calcula la ruta hacia el destino en ficha al pulsar "Ir".
-    func startRoute(from source: CLLocationCoordinate2D?, transport: MKDirectionsTransportType) async {
+    /// Resumen de la elección de ruta (obstáculos del camino / evitados).
+    var routeChoiceNote: String?
+    /// ¿La ruta elegida sigue teniendo obstáculos relevantes? (→ ofrecer ayudante)
+    var hasUnavoidableObstacles = false
+
+    /// Calcula la RUTA ADAPTADA: pide alternativas, cuenta obstáculos por versión,
+    /// elige la que menos tenga. Si quedan inevitables, se ofrece el ayudante.
+    func startRoute(from source: CLLocationCoordinate2D?, profile: AccessibilityProfile) async {
         guard let item = previewItem else { return }
         guard let source else {
             errorMessage = "No podemos obtener tu ubicación. Activa los permisos para calcular la ruta."
@@ -422,38 +421,83 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         let request = MKDirections.Request()
         request.source = MKMapItem(placemark: MKPlacemark(coordinate: source))
         request.destination = item
-        request.transportType = transport
+        request.transportType = profile.transportType
+        request.requestsAlternateRoutes = true
 
         do {
             let response = try await MKDirections(request: request).calculate()
-            if let first = response.routes.first {
-                destination = item
-                route = first
-                steps = first.steps.filter { !$0.instructions.isEmpty }
-                currentStepIndex = 0
-                isNavigating = false
-                previewItem = nil
-                // Obstáculos del camino en segundo plano (no bloquea la ruta).
-                routeObstacles = []
-                warnedObstacleIds = []
-                obstacleWarning = nil
-                Task { routeObstacles = await RouteObstaclesService.fetch(along: first) }
-                // Guarda la visita en el historial (no bloquea la navegación).
-                Task {
-                    await SavedPlacesService.recordVisit(item: item)
-                    recents = await SavedPlacesService.fetchRecents()
-                }
-            } else {
+            let candidates = Array(response.routes.prefix(3))
+            guard !candidates.isEmpty else {
                 errorMessage = "No encontramos una ruta hasta ese destino."
+                return
+            }
+
+            var scored: [(route: MKRoute, obstacles: [RouteObstacle])] = []
+            await withTaskGroup(of: (Int, [RouteObstacle]).self) { group in
+                for index in candidates.indices {
+                    group.addTask {
+                        (index, await RouteObstaclesService.fetch(along: candidates[index]))
+                    }
+                }
+                var byIndex: [Int: [RouteObstacle]] = [:]
+                for await (index, list) in group { byIndex[index] = list }
+                scored = candidates.enumerated().map { ($0.element, byIndex[$0.offset] ?? []) }
+            }
+
+            func relevantCount(_ entry: (route: MKRoute, obstacles: [RouteObstacle])) -> Int {
+                entry.obstacles.filter { $0.matters(for: profile.type) }.count
+            }
+            let best = scored.min {
+                let (a, b) = (relevantCount($0), relevantCount($1))
+                return a == b ? $0.route.expectedTravelTime < $1.route.expectedTravelTime : a < b
+            } ?? (candidates[0], [])
+
+            destination = item
+            route = best.route
+            steps = best.route.steps.filter { !$0.instructions.isEmpty }
+            currentStepIndex = 0
+            isNavigating = false
+            previewItem = nil
+            routeObstacles = best.obstacles
+            warnedObstacleIds = []
+            obstacleWarning = nil
+
+            let relevant = best.obstacles.filter { $0.matters(for: profile.type) }
+            hasUnavoidableObstacles = !relevant.isEmpty
+            let worstCount = scored.map(relevantCount).max() ?? 0
+            routeChoiceNote = Self.routeSummary(
+                relevant: relevant,
+                avoided: worstCount - relevant.count,
+                alternatives: scored.count
+            )
+
+            Task {
+                await SavedPlacesService.recordVisit(item: item)
+                recents = await SavedPlacesService.fetchRecents()
             }
         } catch {
             errorMessage = "No se pudo calcular la ruta. Inténtalo de nuevo."
         }
     }
 
+    private static func routeSummary(relevant: [RouteObstacle], avoided: Int, alternatives: Int) -> String {
+        var parts: [String] = []
+        if relevant.isEmpty {
+            parts.append("Sin obstáculos conocidos para ti en esta ruta")
+        } else {
+            let counts = Dictionary(grouping: relevant, by: \.title)
+                .map { "\($0.value.count)× \($0.key.lowercased())" }
+                .sorted()
+            parts.append("En el camino: " + counts.joined(separator: ", "))
+        }
+        if avoided > 0, alternatives > 1 {
+            parts.append("ruta elegida evitando \(avoided) obstáculo\(avoided == 1 ? "" : "s") de las alternativas")
+        }
+        return parts.joined(separator: "; ") + "."
+    }
+
     /// Vuelve a la búsqueda limpia.
     func reset() {
-        // Una petición aún sin aceptar no tiene sentido sin destino: se cancela.
         if activeHelpRequest?.status == .pending { cancelHelp() }
         route = nil
         destination = nil
@@ -473,11 +517,12 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         warnedObstacleIds = []
         obstacleWarning = nil
         obstacleClearTask?.cancel()
+        routeChoiceNote = nil
+        hasUnavoidableObstacles = false
     }
 
     // MARK: - Navegación paso a paso
 
-    /// Última posición usada para medir el ritmo de marcha.
     private var lastPaceLocation: CLLocation?
 
     func startNavigation() {
@@ -492,28 +537,18 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         lastPaceLocation = nil
     }
 
-    /// Avanza manualmente al siguiente paso.
     func advanceStep() {
         if currentStepIndex < steps.count - 1 { currentStepIndex += 1 }
     }
 
     /// Avanza automáticamente según la posición del usuario.
-    ///
-    /// Mejoras sobre un umbral fijo:
-    /// - Descarta lecturas GPS malas (imprecisas o antiguas).
-    /// - Umbral adaptativo: crece con la imprecisión del GPS (20–50 m).
-    /// - Detecta pasos saltados: si el usuario está ya en un tramo posterior de la
-    ///   ruta, salta directamente a ese paso en lugar de quedarse atascado.
     func updateProgress(_ location: CLLocation) {
         guard isNavigating, !isLastStep else { return }
 
-        // 1. Filtrar lecturas poco fiables: sin precisión válida, muy imprecisas
-        //    (>65 m no sirve para decidir maniobras) o antiguas (>15 s).
         let accuracy = location.horizontalAccuracy
         guard accuracy > 0, accuracy <= 65,
               location.timestamp.timeIntervalSinceNow > -15 else { return }
 
-        // Aprende el ritmo de marcha real con cada tramo recorrido.
         if let previous = lastPaceLocation {
             WalkingPaceService.record(
                 distance: location.distance(from: previous),
@@ -522,24 +557,17 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
         lastPaceLocation = location
 
-        // 2. Umbral de llegada adaptativo a la calidad de la señal.
         let arrivalThreshold = min(max(20, accuracy * 1.5), 50)
 
-        // 3. ¿Hemos llegado al final de algún paso pendiente? Miramos el paso
-        //    actual y unos pocos por delante (por si el GPS "revive" más adelante
-        //    o el usuario cruzó en diagonal y se saltó una maniobra).
         let lookahead = min(currentStepIndex + 3, steps.count - 1)
         for index in (currentStepIndex...lookahead).reversed() {
             if let end = Self.lastCoordinate(of: steps[index].polyline),
                location.distance(from: CLLocation(latitude: end.latitude, longitude: end.longitude)) < arrivalThreshold {
-                // Fin del paso `index` alcanzado → la indicación vigente es la siguiente.
                 currentStepIndex = min(index + 1, steps.count - 1)
                 return
             }
         }
 
-        // 4. Si no estamos al final de ningún paso, comprobar si el usuario está
-        //    claramente "dentro" de un tramo posterior (paso saltado a mitad).
         for index in ((currentStepIndex + 1)...lookahead).reversed() where index > currentStepIndex {
             if Self.distance(from: location, toPolyline: steps[index].polyline) < arrivalThreshold {
                 currentStepIndex = index
@@ -548,27 +576,23 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
-    /// Distancia hasta la próxima maniobra (fin del paso actual).
     func distanceToNextManeuver(from location: CLLocation?) -> CLLocationDistance? {
         guard let location, let step = currentStep,
               let end = Self.lastCoordinate(of: step.polyline) else { return nil }
         return location.distance(from: CLLocation(latitude: end.latitude, longitude: end.longitude))
     }
 
-    /// Distancia restante hasta el destino (próxima maniobra + tramos pendientes).
     func remainingDistance(from location: CLLocation?) -> CLLocationDistance? {
         guard let toNext = distanceToNextManeuver(from: location) else { return nil }
         let pending = steps.dropFirst(currentStepIndex + 1).reduce(0) { $0 + $1.distance }
         return toNext + pending
     }
 
-    /// Tiempo restante estimado al ritmo de marcha del usuario.
     func remainingTime(from location: CLLocation?, type: DisabilityType) -> TimeInterval? {
         guard let remaining = remainingDistance(from: location) else { return nil }
         return WalkingPaceService.estimatedTime(distance: remaining, type: type)
     }
 
-    /// Duración estimada de una ruta al ritmo de marcha del usuario.
     func estimatedTravelTime(for route: MKRoute, type: DisabilityType) -> TimeInterval {
         WalkingPaceService.estimatedTime(distance: route.distance, type: type)
     }
@@ -578,8 +602,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         return polyline.points()[polyline.pointCount - 1].coordinate
     }
 
-    /// Distancia mínima desde una ubicación a los vértices de una polilínea.
-    /// (Aproximación por vértices: suficiente para pasos peatonales, que son cortos.)
     private static func distance(from location: CLLocation, toPolyline polyline: MKPolyline) -> CLLocationDistance {
         let points = polyline.points()
         var minDistance = CLLocationDistance.greatestFiniteMagnitude

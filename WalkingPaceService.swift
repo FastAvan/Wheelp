@@ -1,86 +1,90 @@
 import Foundation
 import CoreLocation
 
-/// Ritmo de marcha personalizado: aprende la velocidad real del usuario
-/// mientras navega y la usa para estimar tiempos de llegada.
-/// Todo se guarda únicamente en el dispositivo (UserDefaults).
+/// Aprende la velocidad real de marcha del usuario durante la navegación
+/// y la usa para estimar tiempos de viaje personalizados.
+///
+/// Todo se guarda en UserDefaults (local, privado) y nunca sale del dispositivo.
 enum WalkingPaceService {
-    private static let speedKey = "wheelp.pace.speed"     // m/s, media ponderada
-    private static let secondsKey = "wheelp.pace.seconds" // segundos de marcha medidos
 
-    /// Velocidades típicas por versión hasta tener datos propios (m/s).
-    static func defaultSpeed(for type: DisabilityType) -> Double {
-        switch type {
-        case .physical: 0.9
-        case .visual: 1.0
-        case .hearing: 1.3
-        case .none: 1.35
-        }
+    // Velocidades por defecto (m/s) para cuando aún no hay datos suficientes.
+    private static let defaults: [DisabilityType: Double] = [
+        .physical: 0.9,
+        .visual:   1.0,
+        .hearing:  1.3,
+        .none:     1.35
+    ]
+
+    private static let speedKey   = "wheelp.pace.speed"
+    private static let secondsKey = "wheelp.pace.seconds"
+
+    /// Velocidad aprendida (m/s); nil si todavía no hay datos fiables.
+    static var learnedSpeed: Double? {
+        let v = UserDefaults.standard.double(forKey: speedKey)
+        return v > 0 && learnedSeconds >= 180 ? v : nil
     }
 
-    /// Segundos de marcha real acumulados.
+    /// Segundos de marcha medidos en total.
     static var learnedSeconds: Double {
         UserDefaults.standard.double(forKey: secondsKey)
     }
 
-    /// Con al menos 3 minutos medidos, el ritmo propio ya es fiable.
+    /// ¿Hay suficiente historial para confiar en el ritmo aprendido?
     static var hasReliablePace: Bool { learnedSeconds >= 180 }
 
-    /// Velocidad aprendida (m/s), si hay alguna muestra.
-    static var learnedSpeed: Double? {
-        let speed = UserDefaults.standard.double(forKey: speedKey)
-        return speed > 0 ? speed : nil
+    /// Descripción textual del ritmo actual para mostrarlo en Ajustes (min:ss / km).
+    static func paceDescription(for type: DisabilityType) -> String {
+        if let speed = learnedSpeed {
+            return "\(minPerKm(speed)) (aprendido)"
+        }
+        return "\(minPerKm(defaults[type] ?? 1.0)) (estimado)"
     }
 
-    /// Velocidad a usar en estimaciones: la aprendida si es fiable; si no,
-    /// la típica de la versión.
-    static func speed(for type: DisabilityType) -> Double {
-        if hasReliablePace, let learnedSpeed { return learnedSpeed }
-        return defaultSpeed(for: type)
+    private static func minPerKm(_ speedMs: Double) -> String {
+        let secPerKm = 1000.0 / speedMs
+        let mins = Int(secPerKm / 60)
+        let secs = Int(secPerKm.truncatingRemainder(dividingBy: 60))
+        return String(format: "%d:%02d min/km", mins, secs)
     }
 
-    /// Tiempo estimado al ritmo del usuario para una distancia.
-    static func estimatedTime(distance: CLLocationDistance, type: DisabilityType) -> TimeInterval {
-        max(distance, 0) / speed(for: type)
-    }
-
-    /// Tiempo estimado con la velocidad típica de una versión, sin usar el
-    /// ritmo aprendido en este dispositivo (para peticiones de OTRA persona,
-    /// p. ej. lo que ve el ayudante).
-    static func defaultEstimatedTime(distance: CLLocationDistance, type: DisabilityType) -> TimeInterval {
-        max(distance, 0) / defaultSpeed(for: type)
-    }
-
-    /// Registra un tramo caminado durante la navegación.
-    /// Se descartan tramos poco fiables: demasiado cortos/largos en tiempo o
-    /// con velocidades que no son de marcha (parado, vehículo, saltos de GPS).
+    /// Registra un tramo recorrido durante la navegación.
+    /// Usa una media ponderada exponencial, descartando velocidades irreales.
     static func record(distance: CLLocationDistance, duration: TimeInterval) {
-        guard duration >= 2, duration <= 60 else { return }
+        guard duration > 1, distance > 1 else { return }
         let speed = distance / duration
-        guard speed >= 0.2, speed <= 2.5 else { return }
+        guard speed >= 0.3, speed <= 3.0 else { return }
 
-        let defaults = UserDefaults.standard
-        let previous = defaults.double(forKey: speedKey)
-        let seconds = defaults.double(forKey: secondsKey)
-        // Media ponderada por tiempo; el peso del pasado se limita a 30 min
-        // para que el ritmo siga adaptándose (fatiga, cambios de temporada…).
-        let weight = min(seconds, 1800)
-        let updated = previous > 0
-            ? (previous * weight + speed * duration) / (weight + duration)
+        let prevSpeed   = UserDefaults.standard.double(forKey: speedKey)
+        let prevSeconds = learnedSeconds
+
+        let newSeconds = min(prevSeconds + duration, 1800) // tope 30 min de historial
+        let weight     = duration / newSeconds
+        let newSpeed   = prevSpeed > 0
+            ? prevSpeed * (1 - weight) + speed * weight
             : speed
-        defaults.set(updated, forKey: speedKey)
-        defaults.set(seconds + duration, forKey: secondsKey)
+
+        UserDefaults.standard.set(newSpeed,   forKey: speedKey)
+        UserDefaults.standard.set(newSeconds, forKey: secondsKey)
     }
 
-    /// Olvida el ritmo aprendido (vuelve a las velocidades típicas).
+    /// Velocidad efectiva del usuario para el tipo de discapacidad dado.
+    static func speed(for type: DisabilityType) -> Double {
+        learnedSpeed ?? defaults[type] ?? 1.0
+    }
+
+    /// Tiempo estimado para el usuario (ritmo aprendido o por defecto).
+    static func estimatedTime(distance: CLLocationDistance, type: DisabilityType) -> TimeInterval {
+        distance / speed(for: type)
+    }
+
+    /// Tiempo estimado para OTRA persona (sin datos propios → usa el por defecto).
+    static func defaultEstimatedTime(distance: CLLocationDistance, type: DisabilityType) -> TimeInterval {
+        distance / (defaults[type] ?? 1.0)
+    }
+
+    /// Borra el historial aprendido.
     static func reset() {
         UserDefaults.standard.removeObject(forKey: speedKey)
         UserDefaults.standard.removeObject(forKey: secondsKey)
-    }
-
-    /// Texto del ritmo actual, p. ej. "12 min por kilómetro".
-    static func paceDescription(for type: DisabilityType) -> String {
-        let minutesPerKm = 1000 / speed(for: type) / 60
-        return "\(Int(minutesPerKm.rounded())) min por kilómetro"
     }
 }

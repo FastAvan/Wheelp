@@ -163,6 +163,8 @@ struct SettingsView: View {
         }
     }
 
+    @State private var helperAvgRating: Double? = nil
+
     private var helperSection: some View {
         Section {
             HStack {
@@ -172,10 +174,30 @@ struct SettingsView: View {
                     .foregroundStyle(Color.wheelpGreen)
                     .accessibilityHidden(true)
             }
+            if let avg = helperAvgRating {
+                HStack {
+                    Label("Valoración media", systemImage: "star.fill")
+                    Spacer()
+                    Text(String(format: "%.1f / 5", avg))
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 2) {
+                        ForEach(1...5, id: \.self) { star in
+                            Image(systemName: Double(star) <= avg.rounded() ? "star.fill" : "star")
+                                .font(.caption)
+                                .foregroundStyle(Color.yellow)
+                        }
+                    }
+                    .accessibilityHidden(true)
+                }
+            }
         } header: {
             Text("Ayudantes")
         } footer: {
-            Text("Verás las peticiones de ayuda cercanas desde el botón de la mano en el mapa. El alta de ayudantes la gestiona el equipo de Wheelp.")
+            Text("Verás las peticiones de ayuda cercanas desde el botón de la mapa. El alta de ayudantes la gestiona el equipo de Wheelp.")
+        }
+        .task {
+            guard let userId = await HelperService.currentUserId() else { return }
+            helperAvgRating = await HelperService.averageRating(for: userId)
         }
     }
 

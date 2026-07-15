@@ -20,6 +20,8 @@ struct MapHomeView: View {
     @State private var chatRequest: HelpRequest?
     /// Al terminar una ruta se invita a aportar la accesibilidad del destino.
     @State private var finishedContribution: ContributionTarget?
+    /// Si el usuario terminó una ruta con ayudante, se le pide que lo valore.
+    @State private var pendingHelperRating: HelperRatingTarget?
     // Visualización del trayecto de una petición (modo ayudante).
     @State private var visualizedRequest: HelpRequest?
     @State private var visualizedRoute: MKRoute?
@@ -94,7 +96,7 @@ struct MapHomeView: View {
                     originCoordinate: location.lastLocation?.coordinate,
                     destinationCoordinate: item.placemark.coordinate,
                     steps: model.steps
-                ) { meeting, meetingName, meetingCoordinate in
+                ) { meeting, meetingName, meetingCoordinate, scheduledAt in
                     Task {
                         await model.requestHelp(
                             disabilityType: profile.type,
@@ -102,7 +104,8 @@ struct MapHomeView: View {
                             origin: location.lastLocation?.coordinate,
                             meeting: meeting,
                             meetingName: meetingName,
-                            meetingCoordinate: meetingCoordinate
+                            meetingCoordinate: meetingCoordinate,
+                            scheduledAt: scheduledAt
                         )
                     }
                 }
@@ -129,6 +132,10 @@ struct MapHomeView: View {
             ) { features in
                 Task { await model.submitContribution(for: target.item, features, profile: profile) }
             }
+        }
+        // Valoración del ayudante tras finalizar la ruta.
+        .sheet(item: $pendingHelperRating) { ratingTarget in
+            HelperRatingView(target: ratingTarget) { pendingHelperRating = nil }
         }
         .task {
             location.requestPermission()
@@ -371,14 +378,24 @@ struct MapHomeView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Label(
-                    request.hasExactDetails
-                        ? "Encuentro \(request.meetingPointLabel): \(request.meetingName ?? request.placeName)"
-                        : "Va hacia: \(request.placeName)",
-                    systemImage: request.hasExactDetails ? "figure.2" : "lock.shield"
-                )
-                .font(.caption.weight(.medium))
-                .foregroundStyle(Color.wheelpGreen)
+                // Estado del punto de encuentro: normal → esperando → exacto.
+                if request.status == .accepted, !request.hasExactDetails {
+                    Label(
+                        "Aceptada — esperando el trayecto exacto del solicitante…",
+                        systemImage: "clock.arrow.circlepath"
+                    )
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                } else {
+                    Label(
+                        request.hasExactDetails
+                            ? "Encuentro \(request.meetingPointLabel): \(request.meetingName ?? request.placeName)"
+                            : "Va hacia: \(request.placeName)",
+                        systemImage: request.hasExactDetails ? "figure.2" : "lock.shield"
+                    )
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color.wheelpGreen)
+                }
 
                 // La decisión se toma aquí mismo, sin volver a la lista.
                 if request.status == .pending {
@@ -409,14 +426,44 @@ struct MapHomeView: View {
         }
     }
 
-    /// Acepta la petición visualizada y vuelve a la lista (sección "ayudando a").
+    /// Acepta la petición y espera en el mapa hasta que el solicitante sube
+    /// el trayecto cifrado (intercambio en 2 fases). El banner pasa a mostrar
+    /// "esperando…" y en cuanto llegan los detalles calcula la ruta exacta.
     private func acceptVisualized(_ request: HelpRequest) {
         Task {
-            if await HelperService.accept(request, helperName: appState.publicName) {
-                visualizedRequest = nil
-                visualizedRoute = nil
-                showHelperRequests = true
+            guard await HelperService.accept(request, helperName: appState.publicName) else { return }
+            // Primera lectura inmediata para reflejar el estado "accepted".
+            if let updated = await HelperService.fetch(id: request.id),
+               visualizedRequest?.id == request.id {
+                visualizedRequest = updated
             }
+            // Espera hasta que el solicitante suba su payload cifrado (máx. ~40 s).
+            for _ in 0..<10 {
+                try? await Task.sleep(for: .seconds(4))
+                guard let updated = await HelperService.fetch(id: request.id),
+                      visualizedRequest?.id == request.id else { break }
+                visualizedRequest = updated
+                guard updated.hasExactDetails else { continue }
+                // Punto exacto disponible: recalcula ruta al lugar de encuentro.
+                if let origin = updated.originCoordinate {
+                    let dirs = MKDirections.Request()
+                    dirs.source = MKMapItem(placemark: MKPlacemark(coordinate: origin))
+                    dirs.destination = MKMapItem(placemark: MKPlacemark(coordinate: updated.coordinate))
+                    dirs.transportType = .walking
+                    if let route = try? await MKDirections(request: dirs).calculate().routes.first,
+                       visualizedRequest?.id == request.id {
+                        visualizedRoute = route
+                        withAnimation(.easeInOut) {
+                            camera = .rect(route.polyline.boundingMapRect.insetBy(dx: -600, dy: -600))
+                        }
+                    }
+                }
+                return
+            }
+            // Tiempo de espera agotado: vuelve a la lista.
+            visualizedRequest = nil
+            visualizedRoute   = nil
+            showHelperRequests = true
         }
     }
 
@@ -647,14 +694,28 @@ struct MapHomeView: View {
         if let request = model.activeHelpRequest {
             HStack(spacing: 10) {
                 if request.status == .pending {
-                    ProgressView()
-                    Text("Buscando ayudante…")
-                        .font(profile.bodyFont)
+                    if let scheduled = request.scheduledForText {
+                        Image(systemName: "calendar.badge.clock")
+                            .foregroundStyle(Color.wheelpGreen)
+                        Text("Cita programada para el \(scheduled)")
+                            .font(profile.bodyFont)
+                    } else {
+                        ProgressView()
+                        Text("Buscando ayudante…")
+                            .font(profile.bodyFont)
+                    }
                 } else {
                     Image(systemName: "figure.2")
                         .foregroundStyle(Color.wheelpGreen)
-                    Text("Te ayudará \(request.helperName ?? "un ayudante")")
-                        .font(profile.bodyFont.weight(.semibold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Te ayudará \(request.helperName ?? "un ayudante")")
+                            .font(profile.bodyFont.weight(.semibold))
+                        if let scheduled = request.scheduledForText {
+                            Text("Cita: \(scheduled)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 Spacer()
                 if request.status == .accepted {
@@ -783,7 +844,7 @@ struct MapHomeView: View {
                     Task {
                         await model.startRoute(
                             from: location.lastLocation?.coordinate,
-                            transport: profile.transportType
+                            profile: profile
                         )
                     }
                 } label: {
@@ -858,6 +919,19 @@ struct MapHomeView: View {
                 Label(profile.routeNote, systemImage: "figure.roll")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                // Resumen de la ruta adaptada: obstáculos del camino y evitados.
+                if let note = model.routeChoiceNote {
+                    Label(note, systemImage: model.hasUnavoidableObstacles
+                          ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(model.hasUnavoidableObstacles ? .orange : Color.wheelpGreen)
+                }
+
+                // Obstáculos inevitables: el ayudante es el plan B.
+                if model.hasUnavoidableObstacles {
+                    helpSection
+                }
 
                 let steps = route.steps.filter { !$0.instructions.isEmpty }
                 if !steps.isEmpty {
@@ -949,12 +1023,18 @@ struct MapHomeView: View {
             helpSection
 
             Button("Finalizar") {
-                // El usuario acaba de estar en el destino: momento perfecto
-                // para pedirle su aportación de accesibilidad.
                 let finished = model.destination
+                // Captura el ayudante ANTES de reset() para poder valorarlo después.
+                let helperForRating: HelperRatingTarget? = {
+                    guard let req = model.activeHelpRequest,
+                          req.status == .accepted,
+                          let helperId = req.helperId else { return nil }
+                    return HelperRatingTarget(id: helperId, name: req.helperName ?? "Tu ayudante")
+                }()
                 withAnimation { model.reset() }
                 if profile.voiceGuidance { speech.announce("Ruta finalizada.") }
                 if let finished { finishedContribution = ContributionTarget(item: finished) }
+                if helperForRating != nil { pendingHelperRating = helperForRating }
             }
             .buttonStyle(.wheelpOutline)
             .frame(maxWidth: .infinity, minHeight: profile.controlMinHeight)

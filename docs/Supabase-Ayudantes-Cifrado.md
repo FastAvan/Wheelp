@@ -115,3 +115,76 @@ políticas de seguridad) y las horas. Con la app llegando a cientos de
 usuarios, Supabase queda como un "buzón" reemplazable: todo pasa por
 `HelperService` y el contenido ya viaja cifrado, así que migrar a un servidor
 propio solo requiere cambiar esa pieza.
+
+---
+
+## 5ª parte — CITAS PROGRAMADAS (añadir columna, 2026-07-14)
+
+Ejecutar si ya tienes la tabla creada con el esquema de la 1ª parte:
+
+```sql
+alter table public.help_requests
+  add column if not exists scheduled_at timestamptz;
+
+-- Índice para ordenar las citas por fecha.
+create index if not exists help_requests_scheduled_idx
+  on public.help_requests (scheduled_at asc)
+  where scheduled_at is not null;
+```
+
+Si prefieres recrear la tabla desde cero, añade la columna al `create table`
+de la 1ª parte (justo después de `created_at`):
+
+```sql
+  scheduled_at      timestamptz,          -- null = inmediata, fecha = cita programada
+```
+
+### Cómo funciona
+
+- **Petición inmediata**: `scheduled_at IS NULL`. Los ayudantes la ven en "Peticiones cercanas".
+- **Cita programada**: `scheduled_at` tiene una fecha/hora futura (mínimo 30 min desde ahora, máximo 7 días). Los ayudantes la ven en "Citas programadas", ordenadas por hora más próxima primero.
+- Al aceptar una cita, el ayudante recibe dos recordatorios locales: 30 minutos antes y en el momento exacto.
+- La fecha es legible por Supabase (timestamp plano), pero el trayecto y los nombres siguen cifrados.
+
+---
+
+## 6ª parte — VALORACIONES DE AYUDANTES (nueva tabla, 2026-07-15)
+
+Ejecutar en Supabase → SQL Editor:
+
+```sql
+create table public.helper_ratings (
+  id          uuid primary key,
+  helper_id   uuid not null,
+  rater_id    uuid not null default auth.uid(),
+  rating      int  not null check (rating between 1 and 5),
+  created_at  timestamptz not null default now(),
+  unique (rater_id, helper_id)   -- un usuario = una valoración por ayudante
+);
+
+alter table public.helper_ratings enable row level security;
+
+-- Cualquier usuario autenticado puede leer valoraciones (para mostrar la media).
+create policy "leer_valoraciones"
+  on public.helper_ratings for select
+  to authenticated using (true);
+
+-- Cada usuario solo inserta/modifica sus propias valoraciones.
+create policy "escribir_propias"
+  on public.helper_ratings for insert
+  to authenticated with check (rater_id = auth.uid());
+
+create policy "actualizar_propias"
+  on public.helper_ratings for update
+  to authenticated using (rater_id = auth.uid());
+
+create index helper_ratings_helper_idx
+  on public.helper_ratings (helper_id);
+```
+
+### Cómo funciona
+
+- Al terminar una ruta con ayudante (botón "Finalizar"), se muestra una hoja modal con 1-5 estrellas y un botón "Ahora no".
+- La valoración se guarda con `upsert` por `(rater_id, helper_id)`: si el usuario ya había valorado a ese ayudante, se actualiza la nota.
+- El ayudante ve su nota media en Ajustes → sección "Ayudantes".
+- **Privacidad**: Supabase ve `helper_id`, `rater_id` y `rating` (todo público por diseño; las valoraciones son datos voluntarios, no sensibles).

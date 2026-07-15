@@ -32,6 +32,9 @@
 		7DA506672FF17F560066B1C2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506662FF17F560066B1C2 /* SettingsView.swift */; };
 		7DA5066B2FF181260066B1C2 /* SpeechRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5066A2FF181260066B1C2 /* SpeechRecognizer.swift */; };
 		7DA5066D2FF181750066B1C2 /* VoiceHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5066C2FF181750066B1C2 /* VoiceHomeView.swift */; };
+		7DAD65C0300636F200CBB79B /* HelpCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65BF300636F200CBB79B /* HelpCrypto.swift */; };
+		7DAD65C4300685DA00CBB79B /* MapHomeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */; };
+		7DAD65C63006860000CBB79B /* WalkingPaceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65C53006860000CBB79B /* WalkingPaceService.swift */; };
 		7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */; };
 		7DE071F6300032800089CE1E /* ChatNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F5300032800089CE1E /* ChatNotifier.swift */; };
 		7DE112092FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */; };
@@ -39,6 +42,7 @@
 		7DE8AFCD2FFCDEF400611E32 /* HelpChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFCC2FFCDEF400611E32 /* HelpChatView.swift */; };
 		7DE8AFCF2FFCDFE700611E32 /* HelperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFCE2FFCDFE700611E32 /* HelperService.swift */; };
 		7DE8AFD12FFCE00F00611E32 /* HelperRequestsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFD02FFCE00F00611E32 /* HelperRequestsView.swift */; };
+		7DE8C35130078C7000080ED0 /* HelperRatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8C35030078C7000080ED0 /* HelperRatingView.swift */; };
 		7DFCEDA42FF25A4A00D2D815 /* AccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */; };
 		7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */; };
 		7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */; };
@@ -65,6 +69,9 @@
 		7DA506662FF17F560066B1C2 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		7DA5066A2FF181260066B1C2 /* SpeechRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizer.swift; sourceTree = "<group>"; };
 		7DA5066C2FF181750066B1C2 /* VoiceHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceHomeView.swift; sourceTree = "<group>"; };
+		7DAD65BF300636F200CBB79B /* HelpCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpCrypto.swift; sourceTree = "<group>"; };
+		7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapHomeModel.swift; sourceTree = "<group>"; };
+		7DAD65C53006860000CBB79B /* WalkingPaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkingPaceService.swift; sourceTree = "<group>"; };
 		7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteObstaclesService.swift; sourceTree = "<group>"; };
 		7DE071F5300032800089CE1E /* ChatNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatNotifier.swift; sourceTree = "<group>"; };
 		7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooglePlacesAccessibilityService.swift; sourceTree = "<group>"; };
@@ -72,6 +79,7 @@
 		7DE8AFCC2FFCDEF400611E32 /* HelpChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpChatView.swift; sourceTree = "<group>"; };
 		7DE8AFCE2FFCDFE700611E32 /* HelperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperService.swift; sourceTree = "<group>"; };
 		7DE8AFD02FFCE00F00611E32 /* HelperRequestsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperRequestsView.swift; sourceTree = "<group>"; };
+		7DE8C35030078C7000080ED0 /* HelperRatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperRatingView.swift; sourceTree = "<group>"; };
 		7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
 		7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributeAccessibilityView.swift; sourceTree = "<group>"; };
 		7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSMAccessibilityService.swift; sourceTree = "<group>"; };
@@ -135,6 +143,10 @@
 				7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */,
 				7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */,
 				7DE071F5300032800089CE1E /* ChatNotifier.swift */,
+				7DAD65BF300636F200CBB79B /* HelpCrypto.swift */,
+				7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */,
+				7DAD65C53006860000CBB79B /* WalkingPaceService.swift */,
+				7DE8C35030078C7000080ED0 /* HelperRatingView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -241,6 +253,7 @@
 				7DA5065D2FF17C530066B1C2 /* AccessibilityProfile.swift in Sources */,
 				7DA5065F2FF17C590066B1C2 /* LocationManager.swift in Sources */,
 				7DE8AFCD2FFCDEF400611E32 /* HelpChatView.swift in Sources */,
+				7DAD65C63006860000CBB79B /* WalkingPaceService.swift in Sources */,
 				7DA5066D2FF181750066B1C2 /* VoiceHomeView.swift in Sources */,
 				7DA506532FF177A60066B1C2 /* ConfiguringView.swift in Sources */,
 				7DE112092FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift in Sources */,
@@ -249,9 +262,11 @@
 				7DE071F6300032800089CE1E /* ChatNotifier.swift in Sources */,
 				7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */,
 				7DA506612FF17C800066B1C2 /* MapHomeView.swift in Sources */,
+				7DE8C35130078C7000080ED0 /* HelperRatingView.swift in Sources */,
 				7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */,
 				7DA506512FF177970066B1C2 /* OnboardingFlowView.swift in Sources */,
 				7DA506552FF177AC0066B1C2 /* HomeView.swift in Sources */,
+				7DAD65C0300636F200CBB79B /* HelpCrypto.swift in Sources */,
 				7DE8AFCB2FFCDE8D00611E32 /* NotificationService.swift in Sources */,
 				7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */,
 				7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */,
@@ -260,6 +275,7 @@
 				7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */,
 				7DE8AFD12FFCE00F00611E32 /* HelperRequestsView.swift in Sources */,
 				7DA506492FF177640066B1C2 /* Theme.swift in Sources */,
+				7DAD65C4300685DA00CBB79B /* MapHomeModel.swift in Sources */,
 			);
 		};
 /* End PBXSourcesBuildPhase section */

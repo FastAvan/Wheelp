@@ -25,6 +25,8 @@ struct HelpRequest: Codable, Identifiable, Hashable {
     var requesterPayload: String?
     var helperPayload: String?
     var createdAt: Date?
+    /// Fecha y hora de la cita (nil = petición inmediata).
+    var scheduledAt: Date?
 
     // Campos descifrados localmente (nunca viajan en claro).
     var requesterName: String?
@@ -62,10 +64,22 @@ struct HelpRequest: Codable, Identifiable, Hashable {
         case requesterPayload = "requester_payload"
         case helperPayload = "helper_payload"
         case createdAt = "created_at"
+        case scheduledAt = "scheduled_at"
     }
 
     /// ¿Ya se han descifrado el trayecto y el punto de encuentro exactos?
     var hasExactDetails: Bool { meetingLatitude != nil }
+
+    var isScheduled: Bool { scheduledAt != nil }
+
+    /// Texto formateado de la fecha de la cita para mostrar en la UI.
+    var scheduledForText: String? {
+        guard let date = scheduledAt else { return nil }
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f.string(from: date)
+    }
 
     /// Coordenada del destino (exacta si está descifrada; si no, la zona).
     var coordinate: CLLocationCoordinate2D {
@@ -202,7 +216,8 @@ enum HelperService {
         origin: CLLocationCoordinate2D?,
         meeting: HelpRequest.MeetingPoint,
         meetingName: String?,
-        meetingCoordinate: CLLocationCoordinate2D
+        meetingCoordinate: CLLocationCoordinate2D,
+        scheduledAt: Date? = nil
     ) async -> HelpRequest? {
         let id = UUID()
         let privateKey = Curve25519.KeyAgreement.PrivateKey()
@@ -234,7 +249,8 @@ enum HelperService {
             helperPubkey: nil,
             requesterPayload: nil,
             helperPayload: nil,
-            createdAt: nil
+            createdAt: nil,
+            scheduledAt: scheduledAt
         )
         do {
             try await supabase.from(table).insert(request).execute()
@@ -280,23 +296,51 @@ enum HelperService {
 
     // MARK: - Descubrir y aceptar (ayudante)
 
-    /// Peticiones pendientes cercanas, ordenadas por distancia a la zona.
+    /// Peticiones inmediatas (sin fecha) pendientes cercanas, por distancia.
     static func fetchPending(near center: CLLocationCoordinate2D?, radiusKm: Double = 20) async -> [HelpRequest] {
         let requests: [HelpRequest]? = try? await supabase
             .from(table)
             .select()
             .eq("status", value: HelpRequest.Status.pending.rawValue)
             .order("created_at", ascending: false)
-            .limit(25)
+            .limit(50)
             .execute()
             .value
         guard let requests else { return [] }
-        guard let center else { return requests }
-
+        // Solo las inmediatas (sin cita programada).
+        let immediate = requests.filter { $0.scheduledAt == nil }
+        guard let center else { return immediate }
         let here = CLLocation(latitude: center.latitude, longitude: center.longitude)
-        return requests
+        return immediate
             .filter { distance(from: here, to: $0) <= radiusKm * 1000 }
             .sorted { distance(from: here, to: $0) < distance(from: here, to: $1) }
+    }
+
+    /// Citas programadas pendientes (futuras o hasta 30 min pasadas) cercanas,
+    /// ordenadas por fecha de la cita.
+    static func fetchScheduled(near center: CLLocationCoordinate2D?, radiusKm: Double = 20) async -> [HelpRequest] {
+        let requests: [HelpRequest]? = try? await supabase
+            .from(table)
+            .select()
+            .eq("status", value: HelpRequest.Status.pending.rawValue)
+            .order("scheduled_at", ascending: true)
+            .limit(50)
+            .execute()
+            .value
+        guard let requests else { return [] }
+        let cutoff = Date().addingTimeInterval(-30 * 60)
+        let scheduled = requests.filter {
+            guard let date = $0.scheduledAt else { return false }
+            return date > cutoff
+        }
+        guard let center else { return scheduled }
+        let here = CLLocation(latitude: center.latitude, longitude: center.longitude)
+        return scheduled
+            .filter { distance(from: here, to: $0) <= radiusKm * 1000 }
+            .sorted {
+                guard let a = $0.scheduledAt, let b = $1.scheduledAt else { return false }
+                return a < b
+            }
     }
 
     /// Peticiones que este ayudante tiene aceptadas, ya descifradas.
@@ -411,4 +455,48 @@ enum HelperService {
         )
         _ = try? await supabase.from(messagesTable).insert(message).execute()
     }
+
+    // MARK: - Valoraciones de ayudantes
+
+    /// Guarda la valoración (1–5 estrellas). Si el usuario ya valoró a este
+    /// ayudante, la nota anterior se sustituye (upsert por rater_id+helper_id).
+    static func submitRating(helperId: UUID, rating: Int) async {
+        struct Row: Encodable {
+            let id: UUID
+            let helperId: UUID
+            let rating: Int
+            enum CodingKeys: String, CodingKey {
+                case id
+                case helperId = "helper_id"
+                case rating
+            }
+        }
+        let row = Row(id: UUID(), helperId: helperId, rating: max(1, min(5, rating)))
+        _ = try? await supabase
+            .from("helper_ratings")
+            .upsert(row, onConflict: "rater_id,helper_id")
+            .execute()
+    }
+
+    /// Nota media del ayudante (nil si todavía no tiene valoraciones).
+    static func averageRating(for helperId: UUID) async -> Double? {
+        struct Row: Decodable {
+            let avg: Double?
+            enum CodingKeys: String, CodingKey { case avg }
+        }
+        let rows: [Row]? = try? await supabase
+            .from("helper_ratings")
+            .select("avg:rating.avg()")
+            .eq("helper_id", value: helperId)
+            .execute()
+            .value
+        return rows?.first?.avg
+    }
+}
+
+// MARK: - Valoración pendiente tras terminar una ruta con ayudante
+
+struct HelperRatingTarget: Identifiable {
+    let id: UUID
+    let name: String
 }

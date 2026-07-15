@@ -152,7 +152,7 @@ struct VoiceHomeView: View {
                     originCoordinate: location.lastLocation?.coordinate,
                     destinationCoordinate: item.placemark.coordinate,
                     steps: model.steps
-                ) { meeting, meetingName, meetingCoordinate in
+                ) { meeting, meetingName, meetingCoordinate, scheduledAt in
                     Task {
                         await model.requestHelp(
                             disabilityType: profile.type,
@@ -160,7 +160,8 @@ struct VoiceHomeView: View {
                             origin: location.lastLocation?.coordinate,
                             meeting: meeting,
                             meetingName: meetingName,
-                            meetingCoordinate: meetingCoordinate
+                            meetingCoordinate: meetingCoordinate,
+                            scheduledAt: scheduledAt
                         )
                     }
                 }
@@ -473,6 +474,14 @@ struct VoiceHomeView: View {
                     .foregroundStyle(.secondary)
             }
 
+            if let note = model.routeChoiceNote {
+                Label(note, systemImage: model.hasUnavoidableObstacles
+                      ? "exclamationmark.triangle.fill" : "checkmark.shield.fill")
+                    .font(.title3)
+                    .foregroundStyle(model.hasUnavoidableObstacles ? .orange : Color.wheelpGreen)
+                    .multilineTextAlignment(.center)
+            }
+
             Button {
                 withAnimation { model.startNavigation() }
             } label: {
@@ -643,7 +652,7 @@ struct VoiceHomeView: View {
         Task {
             await model.startRoute(
                 from: location.lastLocation?.coordinate,
-                transport: profile.transportType
+                profile: profile
             )
         }
     }
@@ -994,6 +1003,12 @@ struct VoiceHomeView: View {
         }
         var text = "Ruta calculada. \(formattedDistance(route.distance)), "
         text += "\(formattedTime(model.estimatedTravelTime(for: route, type: profile.type))) a tu ritmo. "
+        if let note = model.routeChoiceNote {
+            text += note + " "
+            if model.hasUnavoidableObstacles {
+                text += "Puedes decir ayuda para pedir un ayudante. "
+            }
+        }
         if let first = route.steps.first(where: { !$0.instructions.isEmpty }) {
             text += "Comienza: \(first.instructions). "
         }

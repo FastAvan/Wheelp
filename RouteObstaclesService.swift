@@ -59,8 +59,10 @@ enum RouteObstaclesService {
         let path = coordinates
             .map { String(format: "%.5f,%.5f", $0.latitude, $0.longitude) }
             .joined(separator: ",")
+        // Timeout corto: esta consulta ahora participa en la elección de ruta
+        // y no debe retrasar el "Ir" más de unos segundos.
         let query = """
-        [out:json][timeout:25];
+        [out:json][timeout:10];
         (
           node(around:25,\(path))[highway~"^(traffic_signals|crossing|steps)$"];
           node(around:25,\(path))[barrier=kerb][kerb=raised];
@@ -75,7 +77,7 @@ enum RouteObstaclesService {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = "data=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
             .data(using: .utf8)
-        request.timeoutInterval = 25
+        request.timeoutInterval = 12
 
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
