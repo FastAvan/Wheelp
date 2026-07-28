@@ -162,6 +162,13 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         Task { await HelperService.close(request.id) }
     }
 
+    /// Fuerza una actualización inmediata del estado de la petición activa.
+    func refreshActiveRequest() async {
+        guard let current = activeHelpRequest,
+              let updated = await HelperService.fetch(id: current.id) else { return }
+        activeHelpRequest = updated
+    }
+
     /// Lugar que se debe mostrar con marcador en el mapa.
     var focusedItem: MKMapItem? { destination ?? previewItem }
 

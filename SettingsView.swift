@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Página de ajustes del usuario: cuenta, versión de accesibilidad y sesión.
 struct SettingsView: View {
@@ -18,6 +19,7 @@ struct SettingsView: View {
                 if appState.isHelper {
                     helperSection
                 }
+                securitySection
                 onboardingSection
                 signOutSection
             }
@@ -25,8 +27,82 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Listo") { dismiss() }
+                    if isUploadingAvatar {
+                        ProgressView()
+                            .tint(Color.wheelpGreen)
+                    } else {
+                        Button("Listo") { dismiss() }
+                    }
                 }
+            }
+        }
+        // Las llamadas a Supabase se lanzan aquí, fuera de la propiedad computada,
+        // para que SwiftUI gestione el ciclo de vida del task correctamente y no
+        // lo reinicie en cada re-render de body.
+        .photosPicker(isPresented: $showAvatarPicker, selection: $avatarPickerItem, matching: .images)
+        .alert("No se pudo guardar la foto", isPresented: $showUploadError) {
+            Button("Aceptar", role: .cancel) {}
+        } message: {
+            Text("Comprueba tu conexión o que el servidor esté configurado e inténtalo de nuevo.")
+        }
+        .task(id: appState.isHelper) {
+            guard appState.isHelper,
+                  let userId = await HelperService.currentUserId() else { return }
+            async let rating = HelperService.averageRating(for: userId)
+            async let avatarURL = HelperService.currentAvatarURL()
+            helperAvgRating = await rating
+            // Cache-busting: fuerza a AsyncImage a cargar la imagen actual del servidor.
+            helperAvatarURL = await avatarURL
+        }
+        .onChange(of: avatarPickerItem) { _, item in
+            guard let item else { return }
+            Task {
+                guard let data = try? await item.loadTransferable(type: Data.self),
+                      let uiImage = UIImage(data: data) else {
+                    avatarPickerItem = nil
+                    return
+                }
+                imageToCrop = uiImage
+                avatarPickerItem = nil
+            }
+        }
+        .sheet(isPresented: $showContactPicker) {
+            ContactPickerView(
+                onSelect: { phone in
+                    appState.trustedContactPhone = phone
+                    showContactPicker = false
+                },
+                onDismiss: { showContactPicker = false }
+            )
+            .presentationBackground(.clear)
+            .interactiveDismissDisabled()
+        }
+        .sheet(isPresented: Binding(
+            get: { imageToCrop != nil },
+            set: { if !$0 { imageToCrop = nil } }
+        )) {
+            if let img = imageToCrop {
+                AvatarCropView(
+                    image: img,
+                    onConfirm: { cropped in
+                        localAvatarImage = cropped   // muestra inmediato, sin esperar subida
+                        isUploadingAvatar = true      // bloquea "Listo" antes de lanzar el Task
+                        imageToCrop = nil
+                        Task {
+                            defer { isUploadingAvatar = false }
+                            guard let data = cropped.jpegData(compressionQuality: 0.6) else {
+                                showUploadError = true
+                                return
+                            }
+                            if let url = await HelperService.uploadAvatar(data) {
+                                helperAvatarURL = url
+                            } else {
+                                showUploadError = true
+                            }
+                        }
+                    },
+                    onCancel: { imageToCrop = nil }
+                )
             }
         }
     }
@@ -164,6 +240,15 @@ struct SettingsView: View {
     }
 
     @State private var helperAvgRating: Double? = nil
+    @State private var helperAvatarURL: String? = nil
+    @State private var avatarPickerItem: PhotosPickerItem? = nil
+    @State private var isUploadingAvatar = false
+    @State private var showAvatarPicker = false
+    @State private var imageToCrop: UIImage? = nil
+    /// Imagen recortada en memoria: se muestra de inmediato sin esperar a AsyncImage.
+    @State private var localAvatarImage: UIImage? = nil
+    @State private var showUploadError = false
+    @State private var showContactPicker = false
 
     private var helperSection: some View {
         Section {
@@ -173,6 +258,31 @@ struct SettingsView: View {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundStyle(Color.wheelpGreen)
                     .accessibilityHidden(true)
+            }
+            // Foto de perfil del ayudante.
+            HStack(spacing: 12) {
+                HelperAvatarView(url: helperAvatarURL, size: 52, localImage: localAvatarImage)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Foto de perfil")
+                        .font(.subheadline)
+                    Text("La verá el usuario al aceptar su petición")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button { showAvatarPicker = true } label: {
+                    if isUploadingAvatar {
+                        ProgressView()
+                            .frame(width: 44, height: 44)
+                    } else {
+                        Image(systemName: "camera.fill")
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(Color.wheelpGreen)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isUploadingAvatar)
+                .accessibilityLabel("Cambiar foto de perfil")
             }
             if let avg = helperAvgRating {
                 HStack {
@@ -195,9 +305,40 @@ struct SettingsView: View {
         } footer: {
             Text("Verás las peticiones de ayuda cercanas desde el botón de la mapa. El alta de ayudantes la gestiona el equipo de Wheelp.")
         }
-        .task {
-            guard let userId = await HelperService.currentUserId() else { return }
-            helperAvgRating = await HelperService.averageRating(for: userId)
+    }
+
+    private var securitySection: some View {
+        Section {
+            HStack {
+                Label("Contacto SOS", systemImage: "person.badge.shield.checkmark.fill")
+                Spacer()
+                Button { showContactPicker = true } label: {
+                    if appState.trustedContactPhone.isEmpty {
+                        Label("Elegir", systemImage: "person.crop.circle.badge.plus")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.wheelpGreen)
+                    } else {
+                        Text(appState.trustedContactPhone)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(appState.trustedContactPhone.isEmpty
+                    ? "Elegir contacto de emergencia"
+                    : "Contacto: \(appState.trustedContactPhone). Tocar para cambiar")
+            }
+            if !appState.trustedContactPhone.isEmpty {
+                Button(role: .destructive) {
+                    appState.trustedContactPhone = ""
+                } label: {
+                    Label("Eliminar contacto SOS", systemImage: "trash")
+                }
+            }
+        } header: {
+            Text("Seguridad")
+        } footer: {
+            Text("Al pulsar el botón SOS durante una sesión de ayuda puedes llamar al 112 o enviar un mensaje de aviso a este número. El número se guarda solo en tu iPhone.")
         }
     }
 

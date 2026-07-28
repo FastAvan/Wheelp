@@ -13,6 +13,8 @@
 		7D1C7BD72FEE8C1100302B3D /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD62FEE8C1100302B3D /* PostgREST */; };
 		7D1C7BD92FEE8C1100302B3D /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD82FEE8C1100302B3D /* Realtime */; };
 		7D1C7BDB2FEE8C1100302B3D /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BDA2FEE8C1100302B3D /* Storage */; };
+		7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */; };
+		7D2B86E23018C30F0080E8A5 /* ContactPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */; };
 		7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */; };
 		7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */; };
 		7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506462FF1775B0066B1C2 /* WheelpApp.swift */; };
@@ -43,6 +45,9 @@
 		7DE8AFCF2FFCDFE700611E32 /* HelperService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFCE2FFCDFE700611E32 /* HelperService.swift */; };
 		7DE8AFD12FFCE00F00611E32 /* HelperRequestsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8AFD02FFCE00F00611E32 /* HelperRequestsView.swift */; };
 		7DE8C35130078C7000080ED0 /* HelperRatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8C35030078C7000080ED0 /* HelperRatingView.swift */; };
+		7DE8C3533007EC7B00080ED0 /* SOSView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8C3523007EC7B00080ED0 /* SOSView.swift */; };
+		7DE8C3553007EE7C00080ED0 /* MeetingCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8C3543007EE7C00080ED0 /* MeetingCodeView.swift */; };
+		7DE8C3573007EF4100080ED0 /* HelperAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE8C3563007EF4100080ED0 /* HelperAvatarView.swift */; };
 		7DFCEDA42FF25A4A00D2D815 /* AccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */; };
 		7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */; };
 		7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */; };
@@ -50,6 +55,8 @@
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Wheelp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wheelp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarCropView.swift; sourceTree = "<group>"; };
+		7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPickerView.swift; sourceTree = "<group>"; };
 		7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestSetupView.swift; sourceTree = "<group>"; };
 		7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedPlacesService.swift; sourceTree = "<group>"; };
 		7DA506462FF1775B0066B1C2 /* WheelpApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelpApp.swift; sourceTree = "<group>"; };
@@ -80,6 +87,9 @@
 		7DE8AFCE2FFCDFE700611E32 /* HelperService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperService.swift; sourceTree = "<group>"; };
 		7DE8AFD02FFCE00F00611E32 /* HelperRequestsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperRequestsView.swift; sourceTree = "<group>"; };
 		7DE8C35030078C7000080ED0 /* HelperRatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperRatingView.swift; sourceTree = "<group>"; };
+		7DE8C3523007EC7B00080ED0 /* SOSView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SOSView.swift; sourceTree = "<group>"; };
+		7DE8C3543007EE7C00080ED0 /* MeetingCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingCodeView.swift; sourceTree = "<group>"; };
+		7DE8C3563007EF4100080ED0 /* HelperAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperAvatarView.swift; sourceTree = "<group>"; };
 		7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
 		7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributeAccessibilityView.swift; sourceTree = "<group>"; };
 		7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSMAccessibilityService.swift; sourceTree = "<group>"; };
@@ -147,6 +157,11 @@
 				7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */,
 				7DAD65C53006860000CBB79B /* WalkingPaceService.swift */,
 				7DE8C35030078C7000080ED0 /* HelperRatingView.swift */,
+				7DE8C3523007EC7B00080ED0 /* SOSView.swift */,
+				7DE8C3543007EE7C00080ED0 /* MeetingCodeView.swift */,
+				7DE8C3563007EF4100080ED0 /* HelperAvatarView.swift */,
+				7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */,
+				7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -249,6 +264,7 @@
 				7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */,
 				7DA506632FF17DB20066B1C2 /* DestinationAccessibility.swift in Sources */,
 				7DA5064D2FF177790066B1C2 /* RootView.swift in Sources */,
+				7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */,
 				7DA5064B2FF177750066B1C2 /* AppState.swift in Sources */,
 				7DA5065D2FF17C530066B1C2 /* AccessibilityProfile.swift in Sources */,
 				7DA5065F2FF17C590066B1C2 /* LocationManager.swift in Sources */,
@@ -263,17 +279,21 @@
 				7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */,
 				7DA506612FF17C800066B1C2 /* MapHomeView.swift in Sources */,
 				7DE8C35130078C7000080ED0 /* HelperRatingView.swift in Sources */,
+				7DE8C3533007EC7B00080ED0 /* SOSView.swift in Sources */,
 				7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */,
 				7DA506512FF177970066B1C2 /* OnboardingFlowView.swift in Sources */,
 				7DA506552FF177AC0066B1C2 /* HomeView.swift in Sources */,
 				7DAD65C0300636F200CBB79B /* HelpCrypto.swift in Sources */,
 				7DE8AFCB2FFCDE8D00611E32 /* NotificationService.swift in Sources */,
 				7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */,
+				7DE8C3573007EF4100080ED0 /* HelperAvatarView.swift in Sources */,
 				7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */,
+				7DE8C3553007EE7C00080ED0 /* MeetingCodeView.swift in Sources */,
 				7DE8AFCF2FFCDFE700611E32 /* HelperService.swift in Sources */,
 				7DA5064F2FF177830066B1C2 /* LoginView.swift in Sources */,
 				7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */,
 				7DE8AFD12FFCE00F00611E32 /* HelperRequestsView.swift in Sources */,
+				7D2B86E23018C30F0080E8A5 /* ContactPickerView.swift in Sources */,
 				7DA506492FF177640066B1C2 /* Theme.swift in Sources */,
 				7DAD65C4300685DA00CBB79B /* MapHomeModel.swift in Sources */,
 			);

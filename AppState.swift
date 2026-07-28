@@ -58,6 +58,12 @@ final class AppState {
         return "Usuario de Wheelp"
     }
 
+    /// Número de teléfono del contacto de confianza para el botón SOS.
+    /// Se guarda solo en el dispositivo; nunca sale del teléfono.
+    var trustedContactPhone: String {
+        didSet { defaults.set(trustedContactPhone, forKey: Keys.trustedContact) }
+    }
+
     /// Control por voz (versión Visual). Si está desactivado, la app se usa solo
     /// con toques en pantalla y no se activa el micrófono.
     var voiceControlEnabled: Bool {
@@ -83,11 +89,13 @@ final class AppState {
         static let voiceControl = "wheelp.voiceControlEnabled"
         static let voiceRate = "wheelp.voiceRate"
         static let displayName = "wheelp.displayName"
+        static let trustedContact = "wheelp.trustedContactPhone"
     }
 
     init() {
         hasCompletedOnboarding = defaults.bool(forKey: Keys.onboarded)
         displayName = defaults.string(forKey: Keys.displayName) ?? ""
+        trustedContactPhone = defaults.string(forKey: Keys.trustedContact) ?? ""
         if let raw = defaults.string(forKey: Keys.disability) {
             disabilityType = DisabilityType(rawValue: raw)
         }
@@ -110,7 +118,7 @@ final class AppState {
         if let session {
             isSignedIn = true
             userName = session.user.email
-            Task { isHelper = await HelperService.isRegisteredHelper() }
+            Task { @MainActor in isHelper = await HelperService.isRegisteredHelper() }
         }
     }
 
@@ -118,7 +126,7 @@ final class AppState {
         let session = try await supabase.auth.signIn(email: email, password: password)
         userName = session.user.email
         isSignedIn = true
-        Task { isHelper = await HelperService.isRegisteredHelper() }
+        Task { @MainActor in isHelper = await HelperService.isRegisteredHelper() }
     }
 
     /// Registra un usuario nuevo. Devuelve `true` si la sesión queda activa,

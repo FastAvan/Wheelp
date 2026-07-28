@@ -188,3 +188,30 @@ create index helper_ratings_helper_idx
 - La valoración se guarda con `upsert` por `(rater_id, helper_id)`: si el usuario ya había valorado a ese ayudante, se actualiza la nota.
 - El ayudante ve su nota media en Ajustes → sección "Ayudantes".
 - **Privacidad**: Supabase ve `helper_id`, `rater_id` y `rating` (todo público por diseño; las valoraciones son datos voluntarios, no sensibles).
+
+---
+
+## 7ª parte — Foto de perfil del ayudante (columna + política RLS)
+
+### SQL necesario (ejecutar en Supabase → SQL Editor)
+
+```sql
+-- Añade la columna para la foto del ayudante (puede ser NULL).
+alter table public.helpers
+  add column if not exists avatar_url text;
+
+-- Permite al ayudante actualizar su propia foto.
+create policy "helpers_update_own"
+  on public.helpers for update
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+```
+
+### Cómo funciona en la app
+
+- El ayudante abre **Ajustes → Ayudantes** y toca el icono de cámara junto a su foto.
+- Se abre `AvatarCropView`: el usuario ajusta el recorte circular con pellizco y arrastre; al confirmar se genera un JPEG 512×512 recortado al píxel.
+- La imagen se convierte a `data:image/jpeg;base64,…` y se guarda directamente en `helpers.avatar_url` (sin Supabase Storage). Esto simplifica la configuración y no requiere bucket ni políticas de Storage.
+- `HelperAvatarView` detecta el prefijo `data:image/jpeg;base64,` y decodifica la imagen en background; en caso contrario usa `AsyncImage` para URLs HTTP normales (por si se migra a Storage en el futuro).
+- Sin foto, el ayudante ve el aviso naranja en la lista de peticiones y no puede aceptar ninguna hasta añadirla.

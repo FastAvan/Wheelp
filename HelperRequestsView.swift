@@ -14,10 +14,38 @@ struct HelperRequestsView: View {
     @State private var accepted: [HelpRequest] = []
     @State private var isLoading = true
     @State private var chatRequest: HelpRequest?
+    /// Códigos de verificación por petición (derivados de la clave compartida).
+    @State private var meetingCodes: [UUID: String] = [:]
+    /// false si el ayudante no tiene foto de perfil: bloquea aceptar peticiones.
+    @State private var helperHasAvatar = false
+    @State private var showSettingsForAvatar = false
 
     var body: some View {
         NavigationStack {
             List {
+                // Aviso de foto de perfil obligatoria.
+                if !helperHasAvatar {
+                    Section {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label(
+                                "Añade una foto de perfil para que los usuarios puedan reconocerte al aceptar.",
+                                systemImage: "person.crop.circle.badge.exclamationmark.fill"
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(.orange)
+                            Button {
+                                showSettingsForAvatar = true
+                            } label: {
+                                Label("Añadir foto ahora", systemImage: "camera.fill")
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .buttonStyle(.wheelpPrimary)
+                        }
+                        .padding(.vertical, 4)
+                        .listRowBackground(Color.orange.opacity(0.08))
+                    }
+                }
+
                 // Peticiones que este ayudante ya ha aceptado.
                 if !accepted.isEmpty {
                     Section("Estás ayudando a") {
@@ -74,6 +102,13 @@ struct HelperRequestsView: View {
             .sheet(item: $chatRequest) { request in
                 HelpChatView(request: request)
             }
+            .sheet(isPresented: $showSettingsForAvatar) {
+                SettingsView()
+            }
+            .onChange(of: showSettingsForAvatar) { _, isShowing in
+                guard !isShowing else { return }
+                Task { helperHasAvatar = (await HelperService.currentAvatarURL()) != nil }
+            }
         }
     }
 
@@ -122,9 +157,12 @@ struct HelperRequestsView: View {
                     }
                 } label: {
                     Label("Aceptar", systemImage: "hand.raised.fill")
+                        .frame(maxWidth: .infinity, minHeight: 22)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.wheelpPrimary)
-                .frame(maxWidth: .infinity, minHeight: 48)
+                .frame(maxWidth: .infinity)
+                .disabled(!helperHasAvatar)
             }
         }
         .padding(.vertical, 4)
@@ -182,9 +220,12 @@ struct HelperRequestsView: View {
                     }
                 } label: {
                     Label("Aceptar cita", systemImage: "calendar.badge.checkmark")
+                        .frame(maxWidth: .infinity, minHeight: 22)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.wheelpPrimary)
-                .frame(maxWidth: .infinity, minHeight: 48)
+                .frame(maxWidth: .infinity)
+                .disabled(!helperHasAvatar)
             }
         }
         .padding(.vertical, 4)
@@ -222,6 +263,17 @@ struct HelperRequestsView: View {
             .font(.subheadline.weight(.medium))
             .foregroundStyle(Color.wheelpGreen)
 
+            // Código de verificación del encuentro (solo cuando la petición está aceptada).
+            if request.status == .accepted {
+                if let code = meetingCodes[request.id] {
+                    MeetingCodeView(code: code, isRequester: false)
+                } else {
+                    Label("Calculando código de verificación…", systemImage: "shield.lefthalf.filled.badge.checkmark")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if let onVisualize {
                 Button {
                     onVisualize(request)
@@ -237,21 +289,43 @@ struct HelperRequestsView: View {
                     chatRequest = request
                 } label: {
                     Label("Chat", systemImage: "bubble.left.and.bubble.right.fill")
-                }
-                .buttonStyle(.wheelpPrimary)
-                .frame(maxWidth: .infinity, minHeight: 44)
-
-                Button {
-                    Task {
-                        cancelReminders(for: request)
-                        await HelperService.close(request.id)
-                        await refresh()
-                    }
-                } label: {
-                    Label("Completada", systemImage: "checkmark.circle.fill")
+                        .frame(maxWidth: .infinity, minHeight: 22)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.wheelpOutline)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity)
+
+                if request.status == .accepted {
+                    // Confirmar encuentro y arrancar la sesión.
+                    Button {
+                        Task {
+                            if await HelperService.markInProgress(request.id) {
+                                await refresh()
+                            }
+                        }
+                    } label: {
+                        Label("Comenzar trayecto", systemImage: "figure.2.circle.fill")
+                            .frame(maxWidth: .infinity, minHeight: 22)
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.wheelpOutline)
+                    .frame(maxWidth: .infinity)
+                } else {
+                    // Sesión en curso → puede marcarla como completada.
+                    Button {
+                        Task {
+                            cancelReminders(for: request)
+                            await HelperService.close(request.id)
+                            await refresh()
+                        }
+                    } label: {
+                        Label("Completada", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity, minHeight: 22)
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.wheelpOutline)
+                    .frame(maxWidth: .infinity)
+                }
             }
             .padding(.top, 10)
         }
@@ -298,9 +372,19 @@ struct HelperRequestsView: View {
         scheduled = await scheduledList
         accepted  = await acceptedList
         isLoading = false
+        // Cargar códigos de verificación para peticiones aceptadas.
+        for request in accepted where request.status == .accepted {
+            if meetingCodes[request.id] == nil {
+                if let code = await HelperService.meetingCode(for: request) {
+                    meetingCodes[request.id] = code
+                }
+            }
+        }
     }
 
     private func pollLoop() async {
+        // Comprobar foto de perfil una sola vez al abrir la pantalla.
+        helperHasAvatar = (await HelperService.currentAvatarURL()) != nil
         await refresh()
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(10))

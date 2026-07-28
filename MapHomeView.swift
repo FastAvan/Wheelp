@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import MessageUI
 
 /// Pantalla principal compartida: mapa + buscador + ficha + ruta, adaptada por perfil.
 struct MapHomeView: View {
@@ -22,13 +23,25 @@ struct MapHomeView: View {
     @State private var finishedContribution: ContributionTarget?
     /// Si el usuario terminó una ruta con ayudante, se le pide que lo valore.
     @State private var pendingHelperRating: HelperRatingTarget?
+    /// Hoja de tracking: mensaje de inicio de sesión al contacto de confianza.
+    @State private var showTrackingMessage = false
+    /// Evita mostrar el tracking más de una vez por sesión de ayuda.
+    @State private var trackingShownForRequest: UUID?
+    /// Código de verificación del encuentro (derivado de la clave compartida).
+    @State private var activeHelpMeetingCode: String?
+    /// URL de la foto del ayudante asignado.
+    @State private var helperAvatarURL: String?
+    /// Avatar propio del ayudante, para mostrar en el botón de ajustes.
+    @State private var myAvatarURL: String?
     // Visualización del trayecto de una petición (modo ayudante).
     @State private var visualizedRequest: HelpRequest?
     @State private var visualizedRoute: MKRoute?
+    /// POI nativo del mapa seleccionado por el usuario con un toque.
+    @State private var selectedFeature: MapFeature? = nil
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        Map(position: $camera) {
+        Map(position: $camera, selection: $selectedFeature) {
             UserAnnotation()
 
             if let route = model.route {
@@ -137,12 +150,73 @@ struct MapHomeView: View {
         .sheet(item: $pendingHelperRating) { ratingTarget in
             HelperRatingView(target: ratingTarget) { pendingHelperRating = nil }
         }
+        // Aviso de inicio de sesión al contacto de confianza.
+        .sheet(isPresented: $showTrackingMessage) {
+            if let request = model.activeHelpRequest,
+               MFMessageComposeViewController.canSendText(),
+               !appState.trustedContactPhone.isEmpty {
+                MessageComposerView(
+                    recipients: [appState.trustedContactPhone],
+                    body: trackingMessageBody(request)
+                )
+            }
+        }
         .task {
             location.requestPermission()
             speech.isEnabled = profile.voiceGuidance
             speech.rate = Float(appState.voiceRate)
             speech.configureSession()
             await model.loadSavedPlaces()
+            if appState.isHelper {
+                myAvatarURL = await HelperService.currentAvatarURL()
+            }
+        }
+        .onChange(of: showSettings) { _, isShowing in
+            guard !isShowing, appState.isHelper else { return }
+            Task { myAvatarURL = await HelperService.currentAvatarURL() }
+        }
+        // Notificaciones locales para ayudantes: detecta nuevas peticiones mientras
+        // la app está en primer plano y la lista de peticiones no está abierta.
+        .task(id: appState.isHelper) {
+            guard appState.isHelper else { return }
+            await NotificationService.requestPermission()
+            var knownRequestIds: Set<UUID> = []
+            while !Task.isCancelled {
+                let requests = await HelperService.fetchPending(near: location.lastLocation?.coordinate)
+                let newIds = Set(requests.map(\.id))
+                let novelIds = newIds.subtracting(knownRequestIds)
+                if !knownRequestIds.isEmpty, !novelIds.isEmpty {
+                    NotificationService.notify(
+                        title: "Nueva petición de ayuda",
+                        body: requests.first(where: { novelIds.contains($0.id) })
+                            .map { "Alguien va a \($0.placeName) y necesita ayuda." }
+                            ?? "Hay una petición de ayuda cerca de ti."
+                    )
+                }
+                knownRequestIds = newIds
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        .onChange(of: model.activeHelpRequest?.status) { _, newStatus in
+            guard newStatus == .inProgress,
+                  let id = model.activeHelpRequest?.id,
+                  trackingShownForRequest != id,
+                  !appState.trustedContactPhone.isEmpty,
+                  MFMessageComposeViewController.canSendText() else { return }
+            trackingShownForRequest = id
+            showTrackingMessage = true
+        }
+        .onChange(of: model.activeHelpRequest?.helperId) { _, helperId in
+            // Cuando se asigna ayudante, cargar su foto y el código de verificación.
+            activeHelpMeetingCode = nil
+            helperAvatarURL = nil
+            guard let helperId else { return }
+            Task {
+                async let code = HelperService.meetingCode(for: model.activeHelpRequest!)
+                async let avatar = HelperService.helperAvatarURL(for: helperId)
+                activeHelpMeetingCode = await code
+                helperAvatarURL = await avatar
+            }
         }
         .alert("Guardar favorito", isPresented: $showAliasPrompt) {
             TextField("Nombre corto (casa, trabajo…)", text: $aliasText)
@@ -155,6 +229,18 @@ struct MapHomeView: View {
         }
         .onChange(of: appState.voiceRate) { _, newRate in
             speech.rate = Float(newRate)
+        }
+        .onChange(of: selectedFeature) { _, feature in
+            guard let feature else { return }
+            // Resetear inmediatamente para suprimir el callout nativo de Apple Maps.
+            selectedFeature = nil
+            guard !model.isNavigating else { return }
+            Task {
+                let request = MKMapItemRequest(feature: feature)
+                guard let item = try? await request.mapItem else { return }
+                model.preview(item, profile: profile)
+                searchFocused = false
+            }
         }
         .onChange(of: model.previewItem) { _, item in
             guard let item else { return }
@@ -286,10 +372,14 @@ struct MapHomeView: View {
                 Button {
                     showSettings = true
                 } label: {
-                    Image(systemName: "person.crop.circle")
-                        .font(.title2)
-                        .frame(width: profile.controlMinHeight, height: profile.controlMinHeight)
-                        .background(.regularMaterial, in: Circle())
+                    if appState.isHelper, let url = myAvatarURL {
+                        HelperAvatarView(url: url, size: profile.controlMinHeight)
+                    } else {
+                        Image(systemName: "person.crop.circle")
+                            .font(.title2)
+                            .frame(width: profile.controlMinHeight, height: profile.controlMinHeight)
+                            .background(.regularMaterial, in: Circle())
+                    }
                 }
                 .accessibilityLabel("Perfil y ajustes")
             }
@@ -692,8 +782,42 @@ struct MapHomeView: View {
     @ViewBuilder
     private var helpSection: some View {
         if let request = model.activeHelpRequest {
-            HStack(spacing: 10) {
-                if request.status == .pending {
+            if request.status == .inProgress {
+                // Sesión activa: ayudante y usuario se han encontrado.
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "figure.2.circle.fill")
+                            .foregroundStyle(Color.wheelpGreen)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Sesión en curso con \(request.helperName ?? "tu ayudante")")
+                                .font(profile.bodyFont.weight(.semibold))
+                            Text("Encuentro verificado · trayecto en curso")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Cancelar") { model.cancelHelp() }
+                            .font(.caption).tint(.red)
+                    }
+                    HStack(spacing: 10) {
+                        SOSButton(
+                            meetingDescription: sosDescription(request),
+                            trustedPhone: appState.trustedContactPhone
+                        )
+                        if !appState.trustedContactPhone.isEmpty,
+                           MFMessageComposeViewController.canSendText() {
+                            Button {
+                                showTrackingMessage = true
+                            } label: {
+                                Label("Compartir sesión", systemImage: "person.badge.shield.checkmark.fill")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .tint(Color.wheelpGreen)
+                        }
+                    }
+                }
+            } else if request.status == .pending {
+                HStack(spacing: 10) {
                     if let scheduled = request.scheduledForText {
                         Image(systemName: "calendar.badge.clock")
                             .foregroundStyle(Color.wheelpGreen)
@@ -704,33 +828,56 @@ struct MapHomeView: View {
                         Text("Buscando ayudante…")
                             .font(profile.bodyFont)
                     }
-                } else {
-                    Image(systemName: "figure.2")
-                        .foregroundStyle(Color.wheelpGreen)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Te ayudará \(request.helperName ?? "un ayudante")")
-                            .font(profile.bodyFont.weight(.semibold))
-                        if let scheduled = request.scheduledForText {
-                            Text("Cita: \(scheduled)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Cancelar") { model.cancelHelp() }
+                        .font(.caption).tint(.red)
+                }
+            } else {
+                // accepted: mostrar avatar, nombre y código de verificación.
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        HelperAvatarView(url: helperAvatarURL, size: 40)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Te ayudará \(request.helperName ?? "un ayudante")")
+                                .font(profile.bodyFont.weight(.semibold))
+                            if let scheduled = request.scheduledForText {
+                                Text("Cita: \(scheduled)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        Spacer()
+                        Button {
+                            chatRequest = request
+                        } label: {
+                            Label("Chat", systemImage: "bubble.left.and.bubble.right.fill")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .tint(Color.wheelpGreen)
+                        Button("Cancelar") { model.cancelHelp() }
+                            .font(.caption).tint(.red)
                     }
-                }
-                Spacer()
-                if request.status == .accepted {
+                    if let code = activeHelpMeetingCode {
+                        MeetingCodeView(code: code, isRequester: true)
+                    } else if request.helperId != nil {
+                        Label("Calculando código…", systemImage: "shield.lefthalf.filled.badge.checkmark")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    // Confirmar encuentro y arrancar el trayecto con el ayudante.
                     Button {
-                        chatRequest = request
+                        Task {
+                            if await HelperService.markInProgress(request.id) {
+                                await model.refreshActiveRequest()
+                            }
+                        }
                     } label: {
-                        Label("Chat", systemImage: "bubble.left.and.bubble.right.fill")
-                            .font(.caption.weight(.semibold))
+                        Label("Comenzar trayecto", systemImage: "figure.2.circle.fill")
                     }
-                    .tint(Color.wheelpGreen)
+                    .buttonStyle(.wheelpPrimary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .accessibilityHint("Confirma que has verificado el código con tu ayudante")
                 }
-                Button("Cancelar") { model.cancelHelp() }
-                    .font(.caption)
-                    .tint(.red)
-                    .accessibilityLabel("Cancelar petición de ayuda")
             }
         } else {
             Button {
@@ -741,6 +888,17 @@ struct MapHomeView: View {
             }
             .tint(Color.wheelpGreen)
         }
+    }
+
+    private func sosDescription(_ request: HelpRequest) -> String {
+        if let name = request.meetingName { return "Punto de encuentro: \(name)" }
+        return "Destino: \(request.placeName)"
+    }
+
+    private func trackingMessageBody(_ request: HelpRequest) -> String {
+        let helper = request.helperName ?? "un ayudante de Wheelp"
+        let place = request.meetingName ?? request.placeName
+        return "Hola, estoy iniciando una sesión de ayuda con \(helper) en: \(place). Te aviso cuando termine. (Enviado desde Wheelp)"
     }
 
     // MARK: Ficha del destino (accesibilidad + "Ir")
@@ -1027,7 +1185,7 @@ struct MapHomeView: View {
                 // Captura el ayudante ANTES de reset() para poder valorarlo después.
                 let helperForRating: HelperRatingTarget? = {
                     guard let req = model.activeHelpRequest,
-                          req.status == .accepted,
+                          req.status == .accepted || req.status == .inProgress,
                           let helperId = req.helperId else { return nil }
                     return HelperRatingTarget(id: helperId, name: req.helperName ?? "Tu ayudante")
                 }()

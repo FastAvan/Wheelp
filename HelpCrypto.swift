@@ -127,4 +127,21 @@ enum HelpCrypto {
     static func approximate(_ value: Double) -> Double {
         (value * 100).rounded() / 100
     }
+
+    // MARK: - Código de verificación del encuentro
+
+    /// Código de 6 dígitos derivado de la clave simétrica compartida mediante HMAC.
+    /// Ambos dispositivos (solicitante y ayudante) calculan el mismo resultado
+    /// de forma independiente: confirmar que coincide prueba que se están comunicando
+    /// con la persona correcta, sin necesidad de ningún servidor.
+    static func meetingCode(from key: SymmetricKey) -> String {
+        let mac = HMAC<SHA256>.authenticationCode(
+            for: Data("wheelp.meeting.code.v1".utf8),
+            using: key
+        )
+        let value = Data(mac).prefix(4).withUnsafeBytes {
+            $0.load(as: UInt32.self).bigEndian
+        }
+        return String(format: "%06d", value % 1_000_000)
+    }
 }

@@ -41,7 +41,9 @@ struct HelpRequest: Codable, Identifiable, Hashable {
     var meetingLongitude: Double?
 
     enum Status: String, Codable {
-        case pending, accepted, completed, cancelled
+        case pending, accepted
+        case inProgress = "in_progress"
+        case completed, cancelled
     }
 
     /// Punto de encuentro elegido por el usuario.
@@ -343,13 +345,26 @@ enum HelperService {
             }
     }
 
-    /// Peticiones que este ayudante tiene aceptadas, ya descifradas.
+    /// Confirma que ayudante y usuario se han encontrado: estado → in_progress.
+    static func markInProgress(_ id: UUID) async -> Bool {
+        do {
+            try await supabase
+                .from(table)
+                .update(["status": HelpRequest.Status.inProgress.rawValue])
+                .eq("id", value: id)
+                .eq("status", value: HelpRequest.Status.accepted.rawValue)
+                .execute()
+            return true
+        } catch { return false }
+    }
+
+    /// Peticiones que este ayudante tiene aceptadas o en curso, ya descifradas.
     static func fetchAccepted() async -> [HelpRequest] {
         guard let userId = try? await supabase.auth.session.user.id else { return [] }
         let requests: [HelpRequest]? = try? await supabase
             .from(table)
             .select()
-            .eq("status", value: HelpRequest.Status.accepted.rawValue)
+            .in("status", value: [HelpRequest.Status.accepted.rawValue, HelpRequest.Status.inProgress.rawValue])
             .eq("helper_id", value: userId)
             .execute()
             .value
@@ -491,6 +506,74 @@ enum HelperService {
             .execute()
             .value
         return rows?.first?.avg
+    }
+
+    // MARK: - Código de verificación del encuentro
+
+    /// Código de 6 dígitos derivado de la clave compartida. Es el mismo en los dos
+    /// dispositivos: el ayudante lo muestra al usuario (o lo confirma visualmente)
+    /// para verificar la identidad antes de iniciar la sesión.
+    static func meetingCode(for request: HelpRequest) async -> String? {
+        guard let key = await symmetricKey(for: request) else { return nil }
+        return HelpCrypto.meetingCode(from: key)
+    }
+
+    // MARK: - Foto de perfil del ayudante
+
+    /// Guarda la foto como data URI en `helpers.avatar_url` (sin Supabase Storage).
+    /// Requiere columna `avatar_url TEXT` y política RLS UPDATE en la tabla helpers.
+    static func uploadAvatar(_ imageData: Data) async -> String? {
+        guard let userId = try? await supabase.auth.session.user.id else {
+            print("[Wheelp] uploadAvatar: sin sesión activa")
+            return nil
+        }
+        let dataURL = "data:image/jpeg;base64," + imageData.base64EncodedString()
+        struct Row: Decodable {
+            let userId: UUID
+            enum CodingKeys: String, CodingKey { case userId = "user_id" }
+        }
+        do {
+            // Usamos .select() para que PostgREST devuelva las filas actualizadas.
+            // Si RLS bloquea silenciosamente, el array estará vacío y detectamos el fallo.
+            let updated: [Row] = try await supabase
+                .from("helpers")
+                .update(["avatar_url": dataURL])
+                .eq("user_id", value: userId)
+                .select("user_id")
+                .execute()
+                .value
+            guard !updated.isEmpty else {
+                print("[Wheelp] uploadAvatar: 0 filas actualizadas — falta política RLS UPDATE en helpers")
+                return nil
+            }
+            print("[Wheelp] uploadAvatar: foto guardada (\(imageData.count / 1024) KB)")
+            return dataURL
+        } catch {
+            print("[Wheelp] uploadAvatar: fallo — \(error)")
+            return nil
+        }
+    }
+
+    /// URL pública de la foto del propio ayudante (nil si no la ha subido).
+    static func currentAvatarURL() async -> String? {
+        guard let userId = try? await supabase.auth.session.user.id else { return nil }
+        return await helperAvatarURL(for: userId)
+    }
+
+    /// URL pública de la foto de un ayudante concreto (para mostrar al solicitante).
+    static func helperAvatarURL(for helperId: UUID) async -> String? {
+        struct Row: Decodable {
+            let avatarUrl: String?
+            enum CodingKeys: String, CodingKey { case avatarUrl = "avatar_url" }
+        }
+        let row: Row? = try? await supabase
+            .from("helpers")
+            .select("avatar_url")
+            .eq("user_id", value: helperId)
+            .single()
+            .execute()
+            .value
+        return row?.avatarUrl
     }
 }
 
