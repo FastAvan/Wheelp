@@ -12,10 +12,21 @@ struct ConfiguringView: View {
     @State private var speech = SpeechAnnouncer()
 
     private var pages: [String] {
-        [
+        let specific: String
+        switch disability {
+        case .physical:
+            specific = "Hemos activado la versión de movilidad reducida: la app buscará rutas sin escaleras ni bordillos, te avisará de obstáculos en el camino y el mapa puede orientarse según tu dirección de marcha."
+        case .hearing:
+            specific = "Hemos activado la versión auditiva: cada indicación de ruta llega por pantalla y con vibración. No dependerás del audio para llegar a tu destino."
+        case .visual:
+            specific = "Hemos activado el control por voz: di el destino y navega manos libres. Wheelp te guiará hablando y puedes preguntar dónde estás en cualquier momento."
+        case .none:
+            specific = "Tu versión de ayudante está lista. Verás las peticiones cercanas en el botón de la mano y podrás atenderlas directamente desde el mapa."
+        }
+        return [
             "Estamos configurando la aplicación para usted.",
-            "Usando la información que nos ha dado, vamos a ofrecerte la forma más rápida de llegar a tus destinos, escogiendo los caminos que mejor se adapten a sus necesidades.",
-            "La aplicación ya está configurada y preparada para que la use."
+            specific,
+            "¡Todo listo! Ya puedes empezar."
         ]
     }
 

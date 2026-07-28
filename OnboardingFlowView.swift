@@ -1,12 +1,12 @@
 import SwiftUI
 
 /// Flujo de configuración inicial guiado por el asistente Wheelp.
-/// Pasos: intro → (tipo de discapacidad | aviso sin discapacidad) → configurando.
+/// Pasos: welcome → intro → (tipo de discapacidad | aviso sin discapacidad) → configurando.
 /// El asistente lee cada paso en voz alta y se puede responder hablando o tocando.
 /// Con VoiceOver activo, la voz propia se calla pero el micrófono sigue disponible.
 struct OnboardingFlowView: View {
     @Environment(AppState.self) private var appState
-    @State private var step: Step = .intro
+    @State private var step: Step = .welcome
     @State private var selectedDisability: DisabilityType = .none
     @State private var speech = SpeechAnnouncer()
     @State private var recognizer = SpeechRecognizer()
@@ -14,7 +14,8 @@ struct OnboardingFlowView: View {
     @State private var answerMatched = false
 
     enum Step {
-        case intro            // "Hola, soy Wheelp... ¿tiene alguna discapacidad?"
+        case welcome          // Pantalla de bienvenida con las 3 propuestas de valor
+        case intro            // "¿Tiene alguna discapacidad?"
         case chooseType       // Física / Auditiva / Visual
         case noDisability     // Sin discapacidad: estándar (ayudantes) o elegir versión
         case configuring      // Pantallas verdes de configuración
@@ -26,6 +27,8 @@ struct OnboardingFlowView: View {
     var body: some View {
         ZStack {
             switch step {
+            case .welcome:
+                WelcomeView { answer { go(to: .intro) } }
             case .intro:
                 AssistantIntroView(
                     onYes: { answer { go(to: .chooseType) } },
@@ -122,8 +125,10 @@ struct OnboardingFlowView: View {
 
     private func prompt(for step: Step) -> String {
         switch step {
+        case .welcome:
+            "Bienvenido a la app de navegación adaptada. Toca continuar o di continuar para empezar."
         case .intro:
-            "Hola, soy Wheelp. Voy a ayudarte a configurar la app. ¿Tiene alguna discapacidad? Responda sí o no."
+            "¿Tiene alguna discapacidad? Responda sí o no."
         case .chooseType:
             "¿Qué tipo de discapacidad tiene? Diga física, auditiva o visual."
         case .noDisability:
@@ -150,6 +155,10 @@ struct OnboardingFlowView: View {
         func has(_ options: Set<String>) -> Bool { !words.isDisjoint(with: options) }
 
         switch step {
+        case .welcome:
+            if has(["continuar", "empezar", "si", "ok", "vale", "adelante", "inicio"]) {
+                answer { go(to: .intro) }
+            }
         case .intro:
             // "No" primero: "no tengo ninguna" no debe confundirse con un sí.
             if has(["no", "ninguna", "ninguno"]) {
@@ -175,7 +184,80 @@ struct OnboardingFlowView: View {
     }
 }
 
-// MARK: - Paso 1: Presentación del asistente
+// MARK: - Paso 0: Bienvenida
+
+private struct WelcomeView: View {
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            WheelpLogo(variant: .black)
+                .frame(maxWidth: 200)
+                .padding(.top, 24)
+
+            Spacer()
+
+            VStack(alignment: .leading, spacing: 28) {
+                Text("Bienvenido a Wheelp")
+                    .font(.title.bold())
+
+                VStack(alignment: .leading, spacing: 20) {
+                    OnboardingFeatureRow(
+                        icon: "map.fill",
+                        color: .wheelpGreen,
+                        title: "Rutas adaptadas",
+                        subtitle: "Caminos sin obstáculos, adaptados a tus necesidades"
+                    )
+                    OnboardingFeatureRow(
+                        icon: "hand.raised.fill",
+                        color: .blue,
+                        title: "Red de ayudantes",
+                        subtitle: "Solicita ayuda humana en ruta cuando la necesites"
+                    )
+                    OnboardingFeatureRow(
+                        icon: "lock.shield.fill",
+                        color: .orange,
+                        title: "Solo en tu iPhone",
+                        subtitle: "Tus datos no salen del dispositivo salvo lo imprescindible"
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer()
+
+            Button("Continuar", action: onContinue)
+                .buttonStyle(.wheelpPrimary)
+        }
+        .padding(28)
+    }
+}
+
+private struct OnboardingFeatureRow: View {
+    let icon: String
+    let color: Color
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(color)
+                .frame(width: 32)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Paso 1: Pregunta de discapacidad
 
 private struct AssistantIntroView: View {
     let onYes: () -> Void
@@ -189,12 +271,9 @@ private struct AssistantIntroView: View {
 
             Spacer()
 
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Hola, soy Wheelp.\nVoy a ayudarte a configurar la app.")
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Antes de empezar,\n¿tiene alguna discapacidad?")
                     .font(.title2.weight(.semibold))
-
-                Text("Lo primero de todo, ¿tiene alguna discapacidad?")
-                    .font(.title3)
 
                 Text("Puede responder en voz alta o tocar la pantalla.")
                     .font(.subheadline)

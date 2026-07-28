@@ -38,6 +38,8 @@ struct MapHomeView: View {
     @State private var visualizedRoute: MKRoute?
     /// POI nativo del mapa seleccionado por el usuario con un toque.
     @State private var selectedFeature: MapFeature? = nil
+    /// Cuando está activo, el mapa gira para seguir la dirección de marcha del usuario.
+    @State private var headingUp = false
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -244,6 +246,7 @@ struct MapHomeView: View {
         }
         .onChange(of: model.previewItem) { _, item in
             guard let item else { return }
+            headingUp = false
             withAnimation(.easeInOut) {
                 camera = .region(MKCoordinateRegion(
                     center: item.placemark.coordinate,
@@ -255,6 +258,7 @@ struct MapHomeView: View {
         }
         .onChange(of: model.route) { _, newRoute in
             guard let route = newRoute else { return }
+            headingUp = false
             withAnimation(.easeInOut) {
                 camera = .rect(route.polyline.boundingMapRect)
             }
@@ -296,7 +300,13 @@ struct MapHomeView: View {
             if model.isNavigating { announceCurrentStep() }
         }
         .onChange(of: model.isNavigating) { _, navigating in
-            if navigating { announceCurrentStep() }
+            if navigating {
+                headingUp = true
+                camera = .userLocation(followsHeading: true, fallback: .automatic)
+                announceCurrentStep()
+            } else {
+                headingUp = false
+            }
         }
     }
 
@@ -368,6 +378,22 @@ struct MapHomeView: View {
                     }
                     .accessibilityLabel("Peticiones de ayuda cercanas")
                 }
+
+                Button {
+                    headingUp.toggle()
+                    camera = headingUp
+                        ? .userLocation(followsHeading: true, fallback: .automatic)
+                        : .userLocation(fallback: .automatic)
+                } label: {
+                    Image(systemName: "location.north.fill")
+                        .font(.title2)
+                        .foregroundStyle(headingUp ? Color.wheelpGreen : .secondary)
+                        .frame(width: profile.controlMinHeight, height: profile.controlMinHeight)
+                        .background(.regularMaterial, in: Circle())
+                }
+                .accessibilityLabel(headingUp
+                    ? "Orientación activa: el mapa sigue tu dirección. Tocar para desactivar."
+                    : "Orientar el mapa según tu dirección de marcha")
 
                 Button {
                     showSettings = true
