@@ -1,6 +1,15 @@
 {
-  "originHash" : "5f3436049b395fcbc71828c07d82e81a46af698ebe0b146cdc52345a5a60558d",
+  "originHash" : "0ce603525d4d940145dc2a1d2bc4baeec7883a520118166a2576b378c7295789",
   "pins" : [
+    {
+      "identity" : "sdk-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/didit-protocol/sdk-ios.git",
+      "state" : {
+        "revision" : "c72ce40ccba5c55de813d30dcace230e9e1c00fe",
+        "version" : "4.5.3"
+      }
+    },
     {
       "identity" : "supabase-swift",
       "kind" : "remoteSourceControl",

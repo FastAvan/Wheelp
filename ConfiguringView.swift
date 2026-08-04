@@ -21,7 +21,9 @@ struct ConfiguringView: View {
         case .visual:
             specific = "Hemos activado el control por voz: di el destino y navega manos libres. Wheelp te guiará hablando y puedes preguntar dónde estás en cualquier momento."
         case .none:
-            specific = "Tu versión de ayudante está lista. Verás las peticiones cercanas en el botón de la mano y podrás atenderlas directamente desde el mapa."
+            specific = appState.isHelper
+                ? "Tu versión de ayudante está lista. Verás las peticiones cercanas en el botón de la mano y podrás atenderlas directamente desde el mapa."
+                : "La app está lista. Si en algún momento decides solicitar ser ayudante, puedes hacerlo desde Ajustes."
         }
         return [
             "Estamos configurando la aplicación para usted.",

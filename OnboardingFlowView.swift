@@ -12,6 +12,8 @@ struct OnboardingFlowView: View {
     @State private var recognizer = SpeechRecognizer()
     /// Evita reaccionar dos veces a la misma respuesta (voz y toque comparten flujo).
     @State private var answerMatched = false
+    @State private var showHelperApplication = false
+    @State private var helperApplicationSubmitted = false
 
     enum Step {
         case welcome          // Pantalla de bienvenida con las 3 propuestas de valor
@@ -42,8 +44,16 @@ struct OnboardingFlowView: View {
                     }
                 }
             case .noDisability:
-                NoDisabilityNoticeView(isHelper: appState.isHelper) {
-                    answer { continueWithoutDisability() }
+                if appState.isHelper {
+                    NoDisabilityNoticeView(isHelper: true) {
+                        answer { continueWithoutDisability() }
+                    }
+                } else {
+                    HelperIntroView(
+                        onApply: { answer { showHelperApplication = true } },
+                        onBack: { answer { go(to: .intro) } },
+                        onSignOut: { Task { await appState.signOut() } }
+                    )
                 }
             case .configuring:
                 ConfiguringView(disability: selectedDisability) {
@@ -76,6 +86,16 @@ struct OnboardingFlowView: View {
                     try? recognizer.start()
                 }
             }
+        }
+        .sheet(isPresented: $showHelperApplication, onDismiss: {
+            guard helperApplicationSubmitted else { return }
+            helperApplicationSubmitted = false
+            selectedDisability = .none
+            go(to: .configuring)
+        }) {
+            HelperApplicationView(userName: appState.publicName, onSubmit: {
+                helperApplicationSubmitted = true
+            })
         }
     }
 
@@ -120,7 +140,9 @@ struct OnboardingFlowView: View {
 
     private func announceStep() {
         guard step != .configuring else { return }
-        speech.announce(prompt(for: step)) { listenIfEnabled() }
+        let text = prompt(for: step)
+        guard !text.isEmpty else { return }
+        speech.announce(text) { listenIfEnabled() }
     }
 
     private func prompt(for step: Step) -> String {
@@ -134,7 +156,7 @@ struct OnboardingFlowView: View {
         case .noDisability:
             appState.isHelper
                 ? "Tu cuenta es de ayudante verificado. Usarás la versión estándar de Wheelp. Diga continuar para empezar."
-                : "Esta aplicación está diseñada para personas con discapacidad. Diga continuar para elegir la versión que mejor se adapte a la persona que va a usarla."
+                : ""  // Sin discapacidad: sin voz, solo toque
         case .configuring:
             ""
         }
@@ -175,9 +197,12 @@ struct OnboardingFlowView: View {
                 answer { selectedDisability = .visual; go(to: .configuring) }
             }
         case .noDisability:
-            if has(["continuar", "vale", "ok", "si", "adelante", "empezar", "elegir"]) {
-                answer { continueWithoutDisability() }
+            if appState.isHelper {
+                if has(["continuar", "vale", "ok", "si", "adelante", "empezar"]) {
+                    answer { continueWithoutDisability() }
+                }
             }
+            // No-ayudantes: sin control por voz en este paso
         case .configuring:
             break
         }
@@ -327,7 +352,90 @@ private struct DisabilityTypeView: View {
     }
 }
 
-// MARK: - Paso alternativo: sin discapacidad
+// MARK: - Paso alternativo: sin discapacidad — propuesta de ser ayudante
+
+private struct HelperIntroView: View {
+    let onApply: () -> Void
+    let onBack: () -> Void
+    let onSignOut: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button(action: onBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .fontWeight(.semibold)
+                        Text("Volver")
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(Color.wheelpGreen)
+                }
+                Spacer()
+                WheelpLogo(variant: .black)
+                    .frame(maxWidth: 120)
+                Spacer()
+                // Hueco simétrico para centrar el logo
+                Button(action: onBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                        Text("Volver")
+                    }
+                    .font(.subheadline)
+                }
+                .hidden()
+            }
+            .padding(.top, 16)
+
+            Spacer()
+
+            VStack(alignment: .leading, spacing: 24) {
+                Text("Esta app está pensada para personas con discapacidad")
+                    .font(.title2.bold())
+
+                Text("Si no tienes ninguna, puedes unirte como ayudante y acompañar a personas en sus trayectos.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 20) {
+                    OnboardingFeatureRow(
+                        icon: "figure.walk.motion",
+                        color: .blue,
+                        title: "Acompañar en trayectos",
+                        subtitle: "Ayudas a personas a llegar de A a B en su ciudad"
+                    )
+                    OnboardingFeatureRow(
+                        icon: "clock.badge.checkmark",
+                        color: .wheelpGreen,
+                        title: "Cuando tú puedas",
+                        subtitle: "Aceptas las peticiones que te encajen, sin compromisos fijos"
+                    )
+                    OnboardingFeatureRow(
+                        icon: "doc.badge.plus",
+                        color: .orange,
+                        title: "Verificación previa",
+                        subtitle: "Necesitamos DNI y certificado de antecedentes penales"
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer()
+
+            VStack(spacing: 16) {
+                Button("Solicitar ser ayudante", action: onApply)
+                    .buttonStyle(.wheelpPrimary)
+
+                Button("Cerrar sesión", action: onSignOut)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(28)
+    }
+}
+
+// MARK: - Paso alternativo: sin discapacidad — ayudante verificado
 
 private struct NoDisabilityNoticeView: View {
     let isHelper: Bool

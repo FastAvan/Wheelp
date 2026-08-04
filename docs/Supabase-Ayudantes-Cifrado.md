@@ -215,3 +215,219 @@ create policy "helpers_update_own"
 - La imagen se convierte a `data:image/jpeg;base64,…` y se guarda directamente en `helpers.avatar_url` (sin Supabase Storage). Esto simplifica la configuración y no requiere bucket ni políticas de Storage.
 - `HelperAvatarView` detecta el prefijo `data:image/jpeg;base64,` y decodifica la imagen en background; en caso contrario usa `AsyncImage` para URLs HTTP normales (por si se migra a Storage en el futuro).
 - Sin foto, el ayudante ve el aviso naranja en la lista de peticiones y no puede aceptar ninguna hasta añadirla.
+
+---
+
+## 8ª parte — Eliminación de cuenta por el propio usuario (RGPD + App Store)
+
+La app llama a `supabase.rpc("delete_own_account")` desde `AppState.deleteAccount()`.
+Esta función SQL se ejecuta como `security definer` (con privilegios elevados), pero
+solo actúa sobre el `auth.uid()` del usuario autenticado — nunca sobre otra cuenta.
+
+### SQL necesario (ejecutar en Supabase → SQL Editor)
+
+```sql
+-- Elimina todos los datos del usuario autenticado y su cuenta de auth.
+-- Seguro: usa auth.uid() para identificar al solicitante; no acepta parámetros externos.
+create or replace function public.delete_own_account()
+returns void
+language plpgsql
+security definer
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  -- Cancelar peticiones de ayuda activas (como solicitante o como ayudante).
+  delete from public.help_requests
+    where requester_id = uid or helper_id = uid;
+
+  -- Eliminar valoraciones emitidas.
+  delete from public.helper_ratings
+    where rater_id = uid;
+
+  -- Eliminar perfil de ayudante.
+  delete from public.helpers
+    where user_id = uid;
+
+  -- Eliminar la cuenta de autenticación (paso final).
+  delete from auth.users
+    where id = uid;
+end;
+$$;
+
+-- Solo usuarios autenticados pueden invocar la función (y solo borra su propia cuenta).
+grant execute on function public.delete_own_account() to authenticated;
+```
+
+### Cómo funciona en la app
+
+- El usuario abre **Ajustes → Eliminar mi cuenta** (sección al final de la lista).
+- Aparece un alert de confirmación destructivo.
+- Al confirmar: se llama a `delete_own_account()` en Supabase, que borra
+  peticiones activas, valoraciones, perfil de ayudante y la cuenta de auth.
+- A continuación se borran todos los `UserDefaults` locales y el estado en memoria.
+- La app vuelve automáticamente a la pantalla de login.
+- Si la función SQL no está creada aún, el RPC falla y se muestra un alert de error.
+
+---
+
+## 9ª parte — Solicitudes de alta como ayudante desde la app
+
+Los usuarios pueden pedir ser ayudantes desde **Ajustes → Red de ayudantes**.
+El equipo de Wheelp revisa en Supabase y aprueba insertando en `helpers`.
+
+### SQL necesario (ejecutar en Supabase → SQL Editor)
+
+```sql
+-- Tabla de solicitudes de alta como ayudante.
+create table public.helper_applications (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null default auth.uid(),
+  display_name text not null,
+  city         text not null,
+  motivation   text,
+  status       text not null default 'pending',  -- pending | approved | rejected
+  created_at   timestamptz not null default now(),
+  unique (user_id)  -- un usuario = una solicitud (upsert para re-solicitar)
+);
+
+alter table public.helper_applications enable row level security;
+
+-- El usuario solo ve su propia solicitud.
+create policy "ver_propia_solicitud"
+  on public.helper_applications for select
+  to authenticated using (auth.uid() = user_id);
+
+-- El usuario solo puede insertar/actualizar su propia solicitud.
+create policy "crear_solicitud"
+  on public.helper_applications for insert
+  to authenticated with check (auth.uid() = user_id);
+
+create policy "actualizar_solicitud"
+  on public.helper_applications for update
+  to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+### Actualizar `delete_own_account` para borrar también la solicitud
+
+Volver a ejecutar la función de la 8ª parte con esta línea añadida:
+
+```sql
+create or replace function public.delete_own_account()
+returns void language plpgsql security definer as $$
+declare uid uuid := auth.uid();
+begin
+  delete from public.help_requests
+    where requester_id = uid or helper_id = uid;
+  delete from public.helper_ratings
+    where rater_id = uid;
+  delete from public.helper_applications
+    where user_id = uid;
+  delete from public.helpers
+    where user_id = uid;
+  delete from auth.users
+    where id = uid;
+end;
+$$;
+
+grant execute on function public.delete_own_account() to authenticated;
+```
+
+### Flujo de aprobación (manual en Supabase)
+
+1. Usuario envía solicitud → fila en `helper_applications` con `status = 'pending'`
+2. Tú abres Supabase → Table Editor → `helper_applications` → ves nombre, ciudad y motivación
+3. Para aprobar: inserta una fila en `helpers (user_id, display_name)` y cambia `status = 'approved'` en `helper_applications`
+4. La app detecta el cambio en el próximo arranque y activa la versión ayudante
+5. Para rechazar: cambia `status = 'rejected'`; el usuario verá "Solicitud no aprobada" en Ajustes
+
+---
+
+## 10ª parte — Panel de administrador en la app
+
+Permite aprobar/rechazar solicitudes directamente desde **Ajustes → Administración**
+(solo visible para la cuenta administrador). No hay que entrar a Supabase.
+
+### SQL necesario (ejecutar en Supabase → SQL Editor)
+
+```sql
+-- Actualizar RLS: el admin puede leer todas las solicitudes.
+drop policy if exists "ver_propia_solicitud" on public.helper_applications;
+drop policy if exists "ver_solicitudes"      on public.helper_applications;
+
+create policy "ver_solicitudes"
+  on public.helper_applications for select
+  to authenticated
+  using (
+    auth.uid() = user_id
+    or (select email from auth.users where id = auth.uid()) = 'aelguer@icloud.com'
+  );
+
+-- Función: aprobar solicitud e insertar en helpers.
+-- Cambia 'aelguer@icloud.com' si en el futuro hay más admins.
+create or replace function public.approve_helper_application(application_id uuid)
+returns void language plpgsql security definer as $$
+declare
+  app public.helper_applications%rowtype;
+begin
+  if (select email from auth.users where id = auth.uid()) != 'aelguer@icloud.com' then
+    raise exception 'No autorizado';
+  end if;
+
+  select * into app from public.helper_applications where id = application_id;
+
+  insert into public.helpers (user_id, display_name)
+    values (app.user_id, app.display_name)
+    on conflict (user_id) do nothing;
+
+  update public.helper_applications
+    set status = 'approved'
+    where id = application_id;
+end;
+$$;
+
+-- Función: rechazar solicitud.
+create or replace function public.reject_helper_application(application_id uuid)
+returns void language plpgsql security definer as $$
+begin
+  if (select email from auth.users where id = auth.uid()) != 'aelguer@icloud.com' then
+    raise exception 'No autorizado';
+  end if;
+
+  update public.helper_applications
+    set status = 'rejected'
+    where id = application_id;
+end;
+$$;
+
+grant execute on function public.approve_helper_application(uuid) to authenticated;
+grant execute on function public.reject_helper_application(uuid) to authenticated;
+```
+
+> **Nota:** `approve_helper_application` asume que `helpers` tiene columna `display_name TEXT`.
+> Si no existe, añádela: `alter table public.helpers add column if not exists display_name text;`
+
+---
+
+## 11ª parte — Documentación obligatoria en la solicitud de ayudante
+
+Los solicitantes deben adjuntar DNI (dos caras) y certificado de antecedentes penales,
+además de su número de teléfono. Las imágenes se guardan como data URI (base64 JPEG)
+directamente en la tabla.
+
+### SQL necesario (ejecutar en Supabase → SQL Editor)
+
+```sql
+alter table public.helper_applications
+  add column if not exists phone           text,
+  add column if not exists dni_front       text,
+  add column if not exists dni_back        text,
+  add column if not exists criminal_record text;
+```
+
+### Notas
+
+- Las columnas son `text` nullable: los valores llegaron de la app en formato `data:image/jpeg;base64,…`
+- El dashboard web carga los documentos **bajo demanda** (no en el listado inicial) para evitar transferir datos innecesariamente
+- Al hacer clic en un documento en el dashboard se abre en pantalla completa para revisarlo con comodidad
+- Las imágenes se comprimen en el dispositivo a ≤ 1600 px / 65 % JPEG antes de subirlas

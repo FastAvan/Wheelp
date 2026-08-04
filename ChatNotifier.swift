@@ -38,6 +38,12 @@ final class ChatNotifier {
         primed = false
     }
 
+    /// Comprobación puntual: se llama desde AppDelegate cuando llega un silent push.
+    func checkOnce() async {
+        if myUserId == nil { myUserId = await HelperService.currentUserId() }
+        await check()
+    }
+
     private func check() async {
         let messages = await HelperService.fetchRecentMessages()
         for message in messages {

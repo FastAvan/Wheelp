@@ -2,6 +2,7 @@ import SwiftUI
 
 @main
 struct WheelpApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     /// Estado global de la app (sesión, onboarding y tipo de discapacidad).
     @State private var appState = AppState()
 

@@ -20,12 +20,16 @@ struct RootView: View {
                 LoginView()
             } else if !appState.hasCompletedOnboarding {
                 OnboardingFlowView()
+            } else if !appState.hasAcceptedTerms {
+                // Usuarios existentes que aún no han aceptado los T&C (RGPD).
+                TermsView { appState.hasAcceptedTerms = true }
             } else {
                 HomeView()
             }
         }
         .animation(.easeInOut, value: appState.isSignedIn)
         .animation(.easeInOut, value: appState.hasCompletedOnboarding)
+        .animation(.easeInOut, value: appState.hasAcceptedTerms)
         .onChange(of: appState.isSignedIn) { _, signedIn in
             if !signedIn { ChatNotifier.shared.stop() }
         }

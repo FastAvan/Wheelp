@@ -79,6 +79,11 @@ final class AppState {
     /// da de alta al usuario en la tabla `helpers` de Supabase y la app lo detecta.
     var isHelper = false
 
+    /// El usuario ha aceptado los términos y condiciones (persiste en UserDefaults).
+    var hasAcceptedTerms: Bool {
+        didSet { defaults.set(hasAcceptedTerms, forKey: Keys.termsAccepted) }
+    }
+
     static let defaultVoiceRate = 0.5
 
     private let defaults = UserDefaults.standard
@@ -90,6 +95,7 @@ final class AppState {
         static let voiceRate = "wheelp.voiceRate"
         static let displayName = "wheelp.displayName"
         static let trustedContact = "wheelp.trustedContactPhone"
+        static let termsAccepted = "wheelp.hasAcceptedTerms"
     }
 
     init() {
@@ -102,6 +108,7 @@ final class AppState {
         // Por defecto activado en la versión Visual.
         voiceControlEnabled = (defaults.object(forKey: Keys.voiceControl) as? Bool) ?? true
         voiceRate = (defaults.object(forKey: Keys.voiceRate) as? Double) ?? Self.defaultVoiceRate
+        hasAcceptedTerms = defaults.bool(forKey: Keys.termsAccepted)
     }
 
     // MARK: - Autenticación (Supabase)
@@ -142,11 +149,43 @@ final class AppState {
         return false
     }
 
+    func signInWithApple(idToken: String, nonce: String) async throws {
+        let session = try await supabase.auth.signInWithIdToken(credentials: .init(
+            provider: .apple,
+            idToken: idToken,
+            nonce: nonce
+        ))
+        userName = session.user.email
+        isSignedIn = true
+        Task { @MainActor in isHelper = await HelperService.isRegisteredHelper() }
+    }
+
     func signOut() async {
+        await PushTokenService.delete()
         try? await supabase.auth.signOut()
         isSignedIn = false
         userName = nil
         isHelper = false
+    }
+
+    /// Elimina todos los datos del usuario en Supabase (incluida la cuenta de auth)
+    /// y borra los datos locales del dispositivo. Irreversible.
+    /// Requiere que la función SQL `delete_own_account()` esté creada en Supabase
+    /// (ver docs/Supabase-Ayudantes-Cifrado.md — 8ª parte).
+    func deleteAccount() async throws {
+        await PushTokenService.delete()
+        try await supabase.rpc("delete_own_account").execute()
+        [Keys.onboarded, Keys.disability, Keys.voiceControl,
+         Keys.voiceRate, Keys.displayName, Keys.trustedContact, Keys.termsAccepted]
+            .forEach { defaults.removeObject(forKey: $0) }
+        isSignedIn = false
+        userName = nil
+        isHelper = false
+        hasCompletedOnboarding = false
+        disabilityType = nil
+        displayName = ""
+        trustedContactPhone = ""
+        hasAcceptedTerms = false
     }
 
     // MARK: - Onboarding

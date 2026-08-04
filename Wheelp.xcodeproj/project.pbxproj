@@ -17,6 +17,9 @@
 		7D2B86E23018C30F0080E8A5 /* ContactPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */; };
 		7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */; };
 		7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */; };
+		7D9ADA20302292F1000E24D8 /* DiditSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 7D9ADA1F302292F1000E24D8 /* DiditSDK */; };
+		7D9ADA2930229D86000E24D8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D9ADA2830229D86000E24D8 /* AppDelegate.swift */; };
+		7D9ADA2B30229D8D000E24D8 /* PushTokenService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D9ADA2A30229D8D000E24D8 /* PushTokenService.swift */; };
 		7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506462FF1775B0066B1C2 /* WheelpApp.swift */; };
 		7DA506492FF177640066B1C2 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA506482FF177640066B1C2 /* Theme.swift */; };
 		7DA5064B2FF177750066B1C2 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DA5064A2FF177750066B1C2 /* AppState.swift */; };
@@ -37,6 +40,8 @@
 		7DAD65C0300636F200CBB79B /* HelpCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65BF300636F200CBB79B /* HelpCrypto.swift */; };
 		7DAD65C4300685DA00CBB79B /* MapHomeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */; };
 		7DAD65C63006860000CBB79B /* WalkingPaceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65C53006860000CBB79B /* WalkingPaceService.swift */; };
+		7DD3E14930196A900066E578 /* TermsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E14830196A900066E578 /* TermsView.swift */; };
+		7DD3E14B30196AD30066E578 /* HelperApplicationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */; };
 		7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */; };
 		7DE071F6300032800089CE1E /* ChatNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F5300032800089CE1E /* ChatNotifier.swift */; };
 		7DE112092FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */; };
@@ -59,6 +64,8 @@
 		7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPickerView.swift; sourceTree = "<group>"; };
 		7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestSetupView.swift; sourceTree = "<group>"; };
 		7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedPlacesService.swift; sourceTree = "<group>"; };
+		7D9ADA2830229D86000E24D8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		7D9ADA2A30229D8D000E24D8 /* PushTokenService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushTokenService.swift; sourceTree = "<group>"; };
 		7DA506462FF1775B0066B1C2 /* WheelpApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WheelpApp.swift; sourceTree = "<group>"; };
 		7DA506482FF177640066B1C2 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		7DA5064A2FF177750066B1C2 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -79,6 +86,8 @@
 		7DAD65BF300636F200CBB79B /* HelpCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpCrypto.swift; sourceTree = "<group>"; };
 		7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapHomeModel.swift; sourceTree = "<group>"; };
 		7DAD65C53006860000CBB79B /* WalkingPaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkingPaceService.swift; sourceTree = "<group>"; };
+		7DD3E14830196A900066E578 /* TermsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsView.swift; sourceTree = "<group>"; };
+		7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperApplicationView.swift; sourceTree = "<group>"; };
 		7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteObstaclesService.swift; sourceTree = "<group>"; };
 		7DE071F5300032800089CE1E /* ChatNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatNotifier.swift; sourceTree = "<group>"; };
 		7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooglePlacesAccessibilityService.swift; sourceTree = "<group>"; };
@@ -95,9 +104,22 @@
 		7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSMAccessibilityService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7D9ADA1E30228649000E24D8 /* Exceptions for "Wheelp" folder in "Wheelp" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 000000000000000100000000 /* Wheelp */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000010 /* Wheelp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7D9ADA1E30228649000E24D8 /* Exceptions for "Wheelp" folder in "Wheelp" target */,
+			);
 			path = Wheelp;
 			sourceTree = "<group>";
 		};
@@ -108,6 +130,7 @@
 			isa = PBXFrameworksBuildPhase;
 			files = (
 				7D1C7BDB2FEE8C1100302B3D /* Storage in Frameworks */,
+				7D9ADA20302292F1000E24D8 /* DiditSDK in Frameworks */,
 				7D1C7BD72FEE8C1100302B3D /* PostgREST in Frameworks */,
 				7D1C7BD52FEE8C1100302B3D /* Functions in Frameworks */,
 				7D1C7BD32FEE8C1100302B3D /* Auth in Frameworks */,
@@ -162,6 +185,10 @@
 				7DE8C3563007EF4100080ED0 /* HelperAvatarView.swift */,
 				7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */,
 				7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */,
+				7DD3E14830196A900066E578 /* TermsView.swift */,
+				7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */,
+				7D9ADA2830229D86000E24D8 /* AppDelegate.swift */,
+				7D9ADA2A30229D8D000E24D8 /* PushTokenService.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -204,6 +231,7 @@
 				7D1C7BD62FEE8C1100302B3D /* PostgREST */,
 				7D1C7BD82FEE8C1100302B3D /* Realtime */,
 				7D1C7BDA2FEE8C1100302B3D /* Storage */,
+				7D9ADA1F302292F1000E24D8 /* DiditSDK */,
 			);
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* Wheelp.app */;
@@ -235,6 +263,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				7D9ADA1C302274DD000E24D8 /* XCRemoteSwiftPackageReference "sdk-ios" */,
 			);
 			preferredProjectObjectVersion = 90;
 			productRefGroup = 000000000000000000000020 /* Products */;
@@ -262,6 +291,7 @@
 				7DA5066B2FF181260066B1C2 /* SpeechRecognizer.swift in Sources */,
 				7DFCEDA42FF25A4A00D2D815 /* AccessibilityService.swift in Sources */,
 				7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */,
+				7D9ADA2930229D86000E24D8 /* AppDelegate.swift in Sources */,
 				7DA506632FF17DB20066B1C2 /* DestinationAccessibility.swift in Sources */,
 				7DA5064D2FF177790066B1C2 /* RootView.swift in Sources */,
 				7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */,
@@ -279,7 +309,9 @@
 				7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */,
 				7DA506612FF17C800066B1C2 /* MapHomeView.swift in Sources */,
 				7DE8C35130078C7000080ED0 /* HelperRatingView.swift in Sources */,
+				7DD3E14B30196AD30066E578 /* HelperApplicationView.swift in Sources */,
 				7DE8C3533007EC7B00080ED0 /* SOSView.swift in Sources */,
+				7DD3E14930196A900066E578 /* TermsView.swift in Sources */,
 				7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */,
 				7DA506512FF177970066B1C2 /* OnboardingFlowView.swift in Sources */,
 				7DA506552FF177AC0066B1C2 /* HomeView.swift in Sources */,
@@ -294,6 +326,7 @@
 				7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */,
 				7DE8AFD12FFCE00F00611E32 /* HelperRequestsView.swift in Sources */,
 				7D2B86E23018C30F0080E8A5 /* ContactPickerView.swift in Sources */,
+				7D9ADA2B30229D8D000E24D8 /* PushTokenService.swift in Sources */,
 				7DA506492FF177640066B1C2 /* Theme.swift in Sources */,
 				7DAD65C4300685DA00CBB79B /* MapHomeModel.swift in Sources */,
 			);
@@ -438,6 +471,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Wheelp/Wheelp.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -456,6 +490,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Wheelp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wheelp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Accede a Wheelp rápidamente";
@@ -463,6 +498,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wheelp usa el micrófono para permitir búsqueda por voz a usuarios con discapacidad visual o motriz ";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wheelp usa el reconocimiento de voz para que puedas decir en voz alta a dónde quieres ir";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -499,6 +535,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
+				CODE_SIGN_ENTITLEMENTS = Wheelp/Wheelp.entitlements;
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -517,6 +554,7 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Wheelp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Wheelp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Accede a Wheelp rápidamente";
@@ -524,6 +562,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wheelp usa el micrófono para permitir búsqueda por voz a usuarios con discapacidad visual o motriz ";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wheelp usa el reconocimiento de voz para que puedas decir en voz alta a dónde quieres ir";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -585,6 +624,14 @@
 				minimumVersion = 2.5.1;
 			};
 		};
+		7D9ADA1C302274DD000E24D8 /* XCRemoteSwiftPackageReference "sdk-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/didit-protocol/sdk-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.3;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -617,6 +664,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7D269A2C2FEE6A5500610877 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Storage;
+		};
+		7D9ADA1F302292F1000E24D8 /* DiditSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D9ADA1C302274DD000E24D8 /* XCRemoteSwiftPackageReference "sdk-ios" */;
+			productName = DiditSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

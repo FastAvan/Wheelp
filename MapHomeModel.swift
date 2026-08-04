@@ -21,6 +21,8 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     /// Destino seleccionado pendiente de confirmar (fase "ficha").
     var previewItem: MKMapItem?
     var previewAccessibility: DestinationAccessibility?
+    /// Solo para helpers (perfil .none): accesibilidad por tipo de discapacidad.
+    var previewAccessibilityByType: [DisabilityType: DestinationAccessibility] = [:]
 
     /// Destino y ruta una vez el usuario pulsa "Ir".
     var destination: MKMapItem?
@@ -328,6 +330,7 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     func preview(_ item: MKMapItem, profile: AccessibilityProfile) {
         previewItem = item
         previewAccessibility = nil
+        previewAccessibilityByType = [:]
         isLoadingAccessibility = true
         results = []
         resultScores = [:]
@@ -343,9 +346,55 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
 
     private func loadAccessibility(for item: MKMapItem, profile: AccessibilityProfile) async {
         let coordinate = item.placemark.coordinate
-
-        async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
         let key = AccessibilityService.placeKey(for: item)
+
+        // Helpers ven accesibilidad por cada tipo de discapacidad en carrusel.
+        if profile.type == .none {
+            async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
+            let google = await googleResult
+            var base = google.statuses
+            var sourceName: String? = google.found ? "Google Places" : nil
+
+            if base.isEmpty {
+                let osmTags = await OSMAccessibilityService.fetchTags(near: coordinate, name: item.name)
+                if !osmTags.isEmpty { sourceName = "OpenStreetMap" }
+                // OSM tags se interpretan por tipo más abajo
+                for type in DisabilityType.selectable {
+                    let osmStatuses = DestinationAccessibility.osmStatuses(
+                        for: AccessibilityProfile.make(for: type), tags: osmTags)
+                    let reports = (try? await AccessibilityService.fetchReports(
+                        placeKey: key, disabilityType: type)) ?? []
+                    let acc = DestinationAccessibility.combined(
+                        base: osmStatuses, sourceName: sourceName, reports: reports,
+                        profile: AccessibilityProfile.make(for: type))
+                    guard previewItem === item else { return }
+                    previewAccessibilityByType[type] = acc
+                }
+            } else {
+                await withTaskGroup(of: (DisabilityType, DestinationAccessibility).self) { group in
+                    for type in DisabilityType.selectable {
+                        group.addTask {
+                            let reports = (try? await AccessibilityService.fetchReports(
+                                placeKey: key, disabilityType: type)) ?? []
+                            let acc = DestinationAccessibility.combined(
+                                base: base, sourceName: sourceName, reports: reports,
+                                profile: AccessibilityProfile.make(for: type))
+                            return (type, acc)
+                        }
+                    }
+                    for await (type, acc) in group {
+                        guard self.previewItem === item else { return }
+                        self.previewAccessibilityByType[type] = acc
+                    }
+                }
+            }
+            guard previewItem === item else { return }
+            isLoadingAccessibility = false
+            return
+        }
+
+        // Usuarios con discapacidad: accesibilidad para su propio perfil.
+        async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
         let reports = (try? await AccessibilityService.fetchReports(
             placeKey: key,
             disabilityType: profile.type
@@ -387,6 +436,24 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
             try await AccessibilityService.submit(item: item, disabilityType: profile.type, features: features)
             isLoadingAccessibility = true
             await loadAccessibility(for: item, profile: profile)
+        } catch {
+            print("Wheelp: error al guardar la aportación de accesibilidad: \(error)")
+            contributionNotice = "No se pudo guardar tu aportación. Comprueba la conexión e inténtalo de nuevo."
+        }
+    }
+
+    /// Aportación de un ayudante para un tipo de discapacidad concreto.
+    /// Tras guardar, recarga los 3 tipos para que el carrusel refleje el cambio.
+    func submitHelperContribution(
+        _ features: [String: DestinationAccessibility.Feature.Status],
+        forType type: DisabilityType
+    ) async {
+        guard let item = previewItem else { return }
+        contributionNotice = nil
+        do {
+            try await AccessibilityService.submit(item: item, disabilityType: type, features: features)
+            isLoadingAccessibility = true
+            await loadAccessibility(for: item, profile: AccessibilityProfile.make(for: .none))
         } catch {
             print("Wheelp: error al guardar la aportación de accesibilidad: \(error)")
             contributionNotice = "No se pudo guardar tu aportación. Comprueba la conexión e inténtalo de nuevo."

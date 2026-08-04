@@ -135,6 +135,27 @@ struct HelpMessage: Codable, Identifiable, Hashable {
     }
 }
 
+/// Solicitud de un usuario para darse de alta como ayudante (tabla `helper_applications`).
+struct HelperApplication: Codable, Identifiable {
+    let id: UUID
+    let displayName: String
+    let city: String
+    let phone: String?
+    let motivation: String?
+    let status: ApplicationStatus
+    let createdAt: Date?
+
+    enum ApplicationStatus: String, Codable {
+        case pending, approved, rejected
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, city, phone, motivation, status
+        case displayName = "display_name"
+        case createdAt = "created_at"
+    }
+}
+
 /// Peticiones de ayuda cifradas de extremo a extremo: Supabase actúa solo de
 /// "buzón" reemplazable. Crear, descubrir por zona, aceptar (intercambio de
 /// claves), chatear cifrado y borrar todo al terminar.
@@ -575,6 +596,54 @@ enum HelperService {
             .value
         return row?.avatarUrl
     }
+
+    // MARK: - Solicitudes de alta como ayudante
+
+    /// Envía (o actualiza) una solicitud para ser ayudante.
+    /// kycSessionId proviene de Didit; el documento nunca toca los servidores de Wheelp.
+    /// Usa upsert por user_id: permite volver a solicitar tras un rechazo.
+    static func submitApplication(
+        name: String,
+        city: String,
+        phone: String,
+        motivation: String?,
+        kycSessionId: String
+    ) async throws {
+        struct Insert: Encodable {
+            let displayName: String
+            let city: String
+            let phone: String
+            let motivation: String?
+            let status: String
+            let kycSessionId: String
+            enum CodingKeys: String, CodingKey {
+                case displayName = "display_name"
+                case city, phone, motivation, status
+                case kycSessionId = "kyc_session_id"
+            }
+        }
+        try await supabase
+            .from("helper_applications")
+            .upsert(
+                Insert(displayName: name, city: city, phone: phone,
+                       motivation: motivation, status: "pending", kycSessionId: kycSessionId),
+                onConflict: "user_id"
+            )
+            .execute()
+    }
+
+    /// Estado de la solicitud del usuario actual (excluye documentos para no transferir datos grandes).
+    static func myApplication() async -> HelperApplication? {
+        guard (try? await supabase.auth.session.user.id) != nil else { return nil }
+        let rows: [HelperApplication]? = try? await supabase
+            .from("helper_applications")
+            .select("id,display_name,city,phone,status,motivation,created_at")
+            .limit(1)
+            .execute()
+            .value
+        return rows?.first
+    }
+
 }
 
 // MARK: - Valoración pendiente tras terminar una ruta con ayudante

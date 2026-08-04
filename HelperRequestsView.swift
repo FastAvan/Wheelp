@@ -76,9 +76,24 @@ struct HelperRequestsView: View {
                             Text("Buscando peticiones cercanas…")
                                 .foregroundStyle(.secondary)
                         }
+                        .listRowBackground(Color.clear)
                     } else if pending.isEmpty {
-                        Text("No hay peticiones de ayuda cerca ahora mismo.")
-                            .foregroundStyle(.secondary)
+                        VStack(spacing: 10) {
+                            Image(systemName: "hand.raised.slash")
+                                .font(.title)
+                                .foregroundStyle(.secondary)
+                            Text("Sin peticiones cerca ahora mismo")
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            Text("La lista se actualiza sola cada 10 segundos.")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     } else {
                         ForEach(pending) { request in
                             pendingRow(request)

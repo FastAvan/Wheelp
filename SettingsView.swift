@@ -11,7 +11,7 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 accountSection
-                versionSection
+                if !appState.isHelper { versionSection }
                 paceSection
                 if appState.disabilityType == .visual {
                     voiceSection
@@ -21,7 +21,9 @@ struct SettingsView: View {
                 }
                 securitySection
                 onboardingSection
+                privacySection
                 signOutSection
+                deleteAccountSection
             }
             .navigationTitle("Ajustes")
             .navigationBarTitleDisplayMode(.inline)
@@ -39,6 +41,23 @@ struct SettingsView: View {
         // Las llamadas a Supabase se lanzan aquí, fuera de la propiedad computada,
         // para que SwiftUI gestione el ciclo de vida del task correctamente y no
         // lo reinicie en cada re-render de body.
+        .sheet(isPresented: $showTerms) { TermsView() }
+        .alert("Eliminar cuenta permanentemente", isPresented: $showDeleteConfirmation) {
+            Button("Eliminar", role: .destructive) {
+                Task {
+                    do { try await appState.deleteAccount() }
+                    catch { showDeleteError = true }
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Se borrarán todos tus datos de los servidores y del dispositivo. Esta acción no se puede deshacer.")
+        }
+        .alert("No se pudo eliminar la cuenta", isPresented: $showDeleteError) {
+            Button("Aceptar", role: .cancel) {}
+        } message: {
+            Text("Comprueba tu conexión e inténtalo de nuevo. Si el problema persiste, contacta con el equipo de Wheelp.")
+        }
         .photosPicker(isPresented: $showAvatarPicker, selection: $avatarPickerItem, matching: .images)
         .alert("No se pudo guardar la foto", isPresented: $showUploadError) {
             Button("Aceptar", role: .cancel) {}
@@ -46,8 +65,8 @@ struct SettingsView: View {
             Text("Comprueba tu conexión o que el servidor esté configurado e inténtalo de nuevo.")
         }
         .task(id: appState.isHelper) {
-            guard appState.isHelper,
-                  let userId = await HelperService.currentUserId() else { return }
+            guard appState.isHelper else { return }
+            guard let userId = await HelperService.currentUserId() else { return }
             async let rating = HelperService.averageRating(for: userId)
             async let avatarURL = HelperService.currentAvatarURL()
             helperAvgRating = await rating
@@ -249,7 +268,9 @@ struct SettingsView: View {
     @State private var localAvatarImage: UIImage? = nil
     @State private var showUploadError = false
     @State private var showContactPicker = false
-
+    @State private var showDeleteConfirmation = false
+    @State private var showDeleteError = false
+    @State private var showTerms = false
     private var helperSection: some View {
         Section {
             HStack {
@@ -352,6 +373,41 @@ struct SettingsView: View {
             }
         } footer: {
             Text("Vuelve a abrir el asistente de Wheelp para configurar la app desde cero.")
+        }
+    }
+
+    private var privacySection: some View {
+        Section {
+            HStack {
+                Label("Versión", systemImage: "info.circle")
+                Spacer()
+                let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+                let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—"
+                Text("\(version) (\(build))")
+                    .foregroundStyle(.secondary)
+            }
+            Button {
+                showTerms = true
+            } label: {
+                Label("Términos y condiciones", systemImage: "doc.text")
+                    .foregroundStyle(.primary)
+            }
+        } header: {
+            Text("Privacidad y datos")
+        } footer: {
+            Text("Tu correo se guarda en el servidor para gestionar la sesión. La ubicación, los destinos y los favoritos permanecen solo en este iPhone. Las solicitudes de ayuda y los mensajes viajan cifrados de extremo a extremo y se borran al terminar.")
+        }
+    }
+
+    private var deleteAccountSection: some View {
+        Section {
+            Button(role: .destructive) {
+                showDeleteConfirmation = true
+            } label: {
+                Label("Eliminar mi cuenta", systemImage: "person.crop.circle.badge.minus")
+            }
+        } footer: {
+            Text("Borra permanentemente tu cuenta y todos tus datos de los servidores y del dispositivo. Esta acción no se puede deshacer.")
         }
     }
 

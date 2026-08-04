@@ -14,6 +14,8 @@ struct MapHomeView: View {
     @State private var showRouteBanner = false
     @State private var showSettings = false
     @State private var showContribute = false
+    @State private var contributeForType: DisabilityType?
+    @State private var helperAccessTab: DisabilityType = .physical
     @State private var showAliasPrompt = false
     @State private var aliasText = ""
     @State private var showHelperRequests = false
@@ -136,6 +138,15 @@ struct MapHomeView: View {
                 initial: currentFeatureStatuses()
             ) { features in
                 Task { await model.submitContribution(features, profile: profile) }
+            }
+        }
+        .sheet(item: $contributeForType) { type in
+            ContributeAccessibilityView(
+                profile: AccessibilityProfile.make(for: type),
+                placeName: model.previewItem?.name ?? "este lugar",
+                initial: [:]
+            ) { features in
+                Task { await model.submitHelperContribution(features, forType: type) }
             }
         }
         // Invitación a aportar la accesibilidad del destino recién visitado.
@@ -380,22 +391,6 @@ struct MapHomeView: View {
                 }
 
                 Button {
-                    headingUp.toggle()
-                    camera = headingUp
-                        ? .userLocation(followsHeading: true, fallback: .automatic)
-                        : .userLocation(fallback: .automatic)
-                } label: {
-                    Image(systemName: "location.north.fill")
-                        .font(.title2)
-                        .foregroundStyle(headingUp ? Color.wheelpGreen : .secondary)
-                        .frame(width: profile.controlMinHeight, height: profile.controlMinHeight)
-                        .background(.regularMaterial, in: Circle())
-                }
-                .accessibilityLabel(headingUp
-                    ? "Orientación activa: el mapa sigue tu dirección. Tocar para desactivar."
-                    : "Orientar el mapa según tu dirección de marcha")
-
-                Button {
                     showSettings = true
                 } label: {
                     if appState.isHelper, let url = myAvatarURL {
@@ -414,15 +409,32 @@ struct MapHomeView: View {
                 searchResultsList
             } else if !model.completions.isEmpty {
                 completionsList
-            } else if searchFocused, model.previewItem == nil, model.route == nil,
-                      !(model.favorites.isEmpty && model.recents.isEmpty) {
-                savedPlacesList
+            } else if searchFocused, model.previewItem == nil, model.route == nil {
+                if !model.favorites.isEmpty || !model.recents.isEmpty {
+                    savedPlacesList
+                } else {
+                    searchTip
+                }
             }
 
             visualizeBanner
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    private var searchTip: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "lightbulb")
+                .foregroundStyle(Color.wheelpGreen)
+                .accessibilityHidden(true)
+            Text("Escribe un destino. Los favoritos y el historial reciente aparecerán aquí.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: Capsule())
     }
 
     // MARK: - Visualización del trayecto de una petición (modo ayudante)
@@ -975,6 +987,8 @@ struct MapHomeView: View {
                         .font(profile.bodyFont)
                         .foregroundStyle(.secondary)
                 }
+            } else if profile.type == .none {
+                helperAccessCarousel
             } else if let access = model.previewAccessibility {
                 VStack(spacing: 10) {
                     ForEach(access.features) { feature in
@@ -990,8 +1004,6 @@ struct MapHomeView: View {
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(feature.status.color)
                         }
-                        // VoiceOver lee cada criterio como una sola frase:
-                        // "Entrada sin escalones, Disponible".
                         .accessibilityElement(children: .combine)
                     }
                 }
@@ -1015,7 +1027,7 @@ struct MapHomeView: View {
                     .foregroundStyle(.orange)
             }
 
-            helpSection
+            if !appState.isHelper { helpSection }
 
             HStack(spacing: 12) {
                 Button("Cancelar") {
@@ -1050,6 +1062,61 @@ struct MapHomeView: View {
         .wheelpCard(profile)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    // MARK: Carrusel de accesibilidad para ayudantes
+
+    /// TabView con una página por tipo de discapacidad (física / auditiva / visual).
+    private var helperAccessCarousel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("", selection: $helperAccessTab) {
+                ForEach(DisabilityType.selectable) { type in
+                    Text(type.title).tag(type)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            helperAccessPage(for: helperAccessTab)
+        }
+    }
+
+    @ViewBuilder
+    private func helperAccessPage(for type: DisabilityType) -> some View {
+        if let acc = model.previewAccessibilityByType[type] {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(acc.features) { feature in
+                    HStack(spacing: 12) {
+                        Image(systemName: feature.icon)
+                            .frame(width: 20)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                        Text(feature.title).font(.subheadline)
+                        Spacer()
+                        Label(feature.status.label, systemImage: feature.status.icon)
+                            .labelStyle(.titleAndIcon)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(feature.status.color)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+
+                Text(acc.sourceNote)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                Button { contributeForType = type } label: {
+                    Label("Aportar accesibilidad", systemImage: "plus.bubble")
+                        .font(.caption.weight(.semibold))
+                }
+                .tint(Color.wheelpGreen)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack(spacing: 8) {
+                ProgressView()
+                Text("Cargando…").font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 
     @ViewBuilder
@@ -1112,8 +1179,8 @@ struct MapHomeView: View {
                         .foregroundStyle(model.hasUnavoidableObstacles ? .orange : Color.wheelpGreen)
                 }
 
-                // Obstáculos inevitables: el ayudante es el plan B.
-                if model.hasUnavoidableObstacles {
+                // Obstáculos inevitables: el ayudante es el plan B (solo para usuarios, no para el propio ayudante).
+                if model.hasUnavoidableObstacles && !appState.isHelper {
                     helpSection
                 }
 
@@ -1204,7 +1271,7 @@ struct MapHomeView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            helpSection
+            if !appState.isHelper { helpSection }
 
             Button("Finalizar") {
                 let finished = model.destination

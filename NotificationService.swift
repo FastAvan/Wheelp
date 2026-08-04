@@ -1,9 +1,9 @@
+import UIKit
 import UserNotifications
 
-/// Notificaciones locales: avisos inmediatos y citas programadas.
-/// Sin cuenta de pago de Apple no hay push remoto (APNs), así que solo
-/// se disparan mientras la app está en ejecución (inmediatas) o en background
-/// si el sistema las mantiene programadas (UNCalendarNotificationTrigger).
+/// Notificaciones locales e integración con APNs (remote silent push).
+/// Los silent pushes despiertan la app en background; el contenido sensible
+/// nunca sale del dispositivo (el payload del push va vacío).
 enum NotificationService {
 
     private final class ForegroundDelegate: NSObject, UNUserNotificationCenterDelegate {
@@ -24,8 +24,20 @@ enum NotificationService {
     static func requestPermission() async {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
-        guard settings.authorizationStatus == .notDetermined else { return }
-        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+        switch settings.authorizationStatus {
+        case .notDetermined:
+            let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
+            if granted { await registerRemote() }
+        case .authorized, .provisional:
+            await registerRemote()
+        default:
+            break
+        }
+    }
+
+    @MainActor
+    private static func registerRemote() {
+        UIApplication.shared.registerForRemoteNotifications()
     }
 
     /// Notificación inmediata (trigger nil = se muestra al instante).
