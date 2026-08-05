@@ -21,6 +21,10 @@ struct HelperApplicationView: View {
     @State private var kycSessionId: String?
     @State private var kycFailed = false
 
+    // Certificado de antecedentes penales
+    @State private var criminalCheckConfirmed = false
+    @State private var showCriminalCheckInfo = false
+
     init(userName: String, onSubmit: (() -> Void)? = nil) {
         self.userName = userName
         self.onSubmit = onSubmit
@@ -114,6 +118,50 @@ struct HelperApplicationView: View {
             }
 
             Section {
+                if criminalCheckConfirmed {
+                    HStack(spacing: 12) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.title3)
+                            .foregroundStyle(Color.wheelpGreen)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Certificado confirmado")
+                                .font(.subheadline.weight(.medium))
+                            Text("Sin antecedentes penales")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Cambiar") { criminalCheckConfirmed = false }
+                            .font(.footnote)
+                            .foregroundStyle(Color.wheelpGreen)
+                            .buttonStyle(.plain)
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    Toggle(isOn: $criminalCheckConfirmed) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Tengo el certificado de antecedentes penales y no tengo antecedentes")
+                                .font(.subheadline)
+                            Button {
+                                showCriminalCheckInfo = true
+                            } label: {
+                                Text("¿Cómo obtenerlo? →")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.wheelpGreen)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .tint(Color.wheelpGreen)
+                }
+            } header: {
+                Text("Antecedentes penales")
+            } footer: {
+                Text("El certificado de antecedentes penales es obligatorio para ejercer como ayudante. El equipo de Wheelp lo solicitará durante la revisión de tu solicitud.")
+            }
+            .sheet(isPresented: $showCriminalCheckInfo) { criminalCheckInfoSheet }
+
+            Section {
                 ZStack(alignment: .topLeading) {
                     if motivation.isEmpty {
                         Text("Cuéntanos brevemente por qué quieres ayudar (opcional)")
@@ -172,7 +220,7 @@ struct HelperApplicationView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 72)).foregroundStyle(Color.wheelpGreen)
             Text("Solicitud enviada").font(.title2.bold())
-            Text("El equipo de Wheelp revisará tu solicitud en breve. Lo verás aquí en Ajustes cuando haya una respuesta.")
+            Text("El equipo de Wheelp revisará tu solicitud en breve. Te contactaremos para que nos envíes el certificado de antecedentes penales y completar la verificación.")
                 .font(.body).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).padding(.horizontal, 24)
             Spacer()
@@ -182,6 +230,61 @@ struct HelperApplicationView: View {
         }
         .navigationTitle("Solicitud enviada")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Instrucciones del certificado
+
+    private var criminalCheckInfoSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Label("Certificado de Antecedentes Penales", systemImage: "doc.badge.checkmark")
+                        .font(.headline)
+
+                    Text("Para ser ayudante en Wheelp es obligatorio acreditar la ausencia de antecedentes penales, especialmente por delitos contra la integridad física o la libertad sexual.")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 14) {
+                        stepRow(number: "1", title: "Accede a la Sede Electrónica", body: "Entra en la sede electrónica del Ministerio de Justicia de España (sede.mjusticia.gob.es) y busca \"Certificado de Antecedentes Penales\".")
+                        stepRow(number: "2", title: "Identifícate", body: "Puedes usar Cl@ve, DNI electrónico o certificado digital. También existe la opción presencial en cualquier Registro Civil o Gerencia Territorial de Justicia.")
+                        stepRow(number: "3", title: "Solicita el certificado", body: "Elige la opción de certificado para uso privado. Es gratuito y se emite al instante en formato PDF con sello electrónico oficial.")
+                        stepRow(number: "4", title: "Envíanoslo", body: "Una vez aprobada tu solicitud inicial, el equipo de Wheelp te pedirá que nos lo envíes por correo. Revisamos todos los certificados manualmente.")
+                    }
+
+                    Divider()
+
+                    Label("El certificado no se almacena en los servidores de Wheelp. Solo lo revisa el equipo de forma manual (art. 25 RGPD).", systemImage: "lock.shield")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(22)
+            }
+            .navigationTitle("¿Cómo obtenerlo?")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Entendido") { showCriminalCheckInfo = false }
+                        .foregroundStyle(Color.wheelpGreen)
+                }
+            }
+        }
+    }
+
+    private func stepRow(number: String, title: String, body: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text(number)
+                .font(.headline.bold())
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(Color.wheelpGreen, in: Circle())
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(body).font(.caption).foregroundStyle(.secondary)
+            }
+        }
     }
 
     // MARK: - KYC
@@ -205,7 +308,8 @@ struct HelperApplicationView: View {
         !name.trimmingCharacters(in: .whitespaces).isEmpty &&
         city.trimmingCharacters(in: .whitespaces).count >= 3 &&
         phone.trimmingCharacters(in: .whitespaces).count >= 9 &&
-        kycSessionId != nil
+        kycSessionId != nil &&
+        criminalCheckConfirmed
     }
 
     private func submit() {
