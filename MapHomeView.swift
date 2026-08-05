@@ -764,6 +764,8 @@ struct MapHomeView: View {
             navigationCard
         } else if model.route != nil {
             routeCard
+        } else if model.transitItinerary != nil {
+            transitCard
         } else if model.previewItem != nil {
             destinationCard
         } else if let error = model.errorMessage {
@@ -1029,6 +1031,15 @@ struct MapHomeView: View {
 
             if !appState.isHelper { helpSection }
 
+            Picker("Modo", selection: Binding(
+                get: { model.travelMode },
+                set: { model.travelMode = $0 }
+            )) {
+                Label("A pie", systemImage: "figure.walk").tag(MapHomeModel.TravelMode.walking)
+                Label("Transporte", systemImage: "bus.fill").tag(MapHomeModel.TravelMode.transit)
+            }
+            .pickerStyle(.segmented)
+
             HStack(spacing: 12) {
                 Button("Cancelar") {
                     withAnimation { model.reset() }
@@ -1048,7 +1059,7 @@ struct MapHomeView: View {
                         if model.isCalculating {
                             ProgressView().tint(.white)
                         } else {
-                            Label("Ir", systemImage: "figure.walk")
+                            Label("Ir", systemImage: model.travelMode == .transit ? "bus.fill" : "figure.walk")
                         }
                     }
                 }
@@ -1148,6 +1159,65 @@ struct MapHomeView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Sin datos de accesibilidad")
         }
+    }
+
+    // MARK: Tarjeta de transporte público
+
+    private var transitCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            if let itinerary = model.transitItinerary {
+                HStack {
+                    Label(itinerary.formattedDuration, systemImage: "bus.fill")
+                        .font(profile.titleFont)
+                    Spacer()
+                    Button {
+                        withAnimation { model.reset() }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                            .font(.title2)
+                    }
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(itinerary.legs) { leg in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text(leg.vehicleEmoji)
+                                .font(.title3)
+                                .frame(width: 28)
+                            VStack(alignment: .leading, spacing: 2) {
+                                if let line = leg.lineName ?? leg.lineShort {
+                                    Text(line)
+                                        .font(profile.bodyFont.bold())
+                                }
+                                Text(leg.instruction)
+                                    .font(profile.bodyFont)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let dep = leg.departureStop, let arr = leg.arrivalStop {
+                                    Text("\(dep) → \(arr)")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if leg.durationSeconds > 0 {
+                                Text("\(max(1, leg.durationSeconds / 60)) min")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .wheelpCard(profile)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     // MARK: Tarjeta de ruta

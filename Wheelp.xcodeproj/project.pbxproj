@@ -13,6 +13,7 @@
 		7D1C7BD72FEE8C1100302B3D /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD62FEE8C1100302B3D /* PostgREST */; };
 		7D1C7BD92FEE8C1100302B3D /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD82FEE8C1100302B3D /* Realtime */; };
 		7D1C7BDB2FEE8C1100302B3D /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BDA2FEE8C1100302B3D /* Storage */; };
+		7D1D468E3023B5FD00E891DD /* TransitRoutingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */; };
 		7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */; };
 		7D2B86E23018C30F0080E8A5 /* ContactPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */; };
 		7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */; };
@@ -60,6 +61,7 @@
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Wheelp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wheelp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitRoutingService.swift; sourceTree = "<group>"; };
 		7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarCropView.swift; sourceTree = "<group>"; };
 		7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPickerView.swift; sourceTree = "<group>"; };
 		7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestSetupView.swift; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 				7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */,
 				7D9ADA2830229D86000E24D8 /* AppDelegate.swift */,
 				7D9ADA2A30229D8D000E24D8 /* PushTokenService.swift */,
+				7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -293,6 +296,7 @@
 				7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */,
 				7D9ADA2930229D86000E24D8 /* AppDelegate.swift in Sources */,
 				7DA506632FF17DB20066B1C2 /* DestinationAccessibility.swift in Sources */,
+				7D1D468E3023B5FD00E891DD /* TransitRoutingService.swift in Sources */,
 				7DA5064D2FF177790066B1C2 /* RootView.swift in Sources */,
 				7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */,
 				7DA5064B2FF177750066B1C2 /* AppState.swift in Sources */,

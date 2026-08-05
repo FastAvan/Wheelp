@@ -28,6 +28,10 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     var destination: MKMapItem?
     var route: MKRoute?
 
+    enum TravelMode { case walking, transit }
+    var travelMode: TravelMode = .walking
+    var transitItinerary: TransitItinerary?
+
     var isCalculating = false
     var isLoadingAccessibility = false
     var errorMessage: String?
@@ -479,9 +483,43 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     /// ¿La ruta elegida sigue teniendo obstáculos relevantes? (→ ofrecer ayudante)
     var hasUnavoidableObstacles = false
 
+    func startRoute(from source: CLLocationCoordinate2D?, profile: AccessibilityProfile) async {
+        if travelMode == .transit {
+            await startTransitRoute(from: source)
+            return
+        }
+        await startWalkingRoute(from: source, profile: profile)
+    }
+
+    private func startTransitRoute(from source: CLLocationCoordinate2D?) async {
+        guard let item = previewItem else { return }
+        guard let source else {
+            errorMessage = "No podemos obtener tu ubicación. Activa los permisos para calcular la ruta."
+            return
+        }
+        isCalculating = true
+        errorMessage = nil
+        defer { isCalculating = false }
+
+        if let itinerary = await TransitRoutingService.fetch(
+            from: source,
+            to: item.placemark.coordinate
+        ) {
+            destination = item
+            transitItinerary = itinerary
+            previewItem = nil
+            Task {
+                await SavedPlacesService.recordVisit(item: item)
+                recents = await SavedPlacesService.fetchRecents()
+            }
+        } else {
+            errorMessage = "No se encontró ruta en transporte público. Prueba a pie."
+        }
+    }
+
     /// Calcula la RUTA ADAPTADA: pide alternativas, cuenta obstáculos por versión,
     /// elige la que menos tenga. Si quedan inevitables, se ofrece el ayudante.
-    func startRoute(from source: CLLocationCoordinate2D?, profile: AccessibilityProfile) async {
+    private func startWalkingRoute(from source: CLLocationCoordinate2D?, profile: AccessibilityProfile) async {
         guard let item = previewItem else { return }
         guard let source else {
             errorMessage = "No podemos obtener tu ubicación. Activa los permisos para calcular la ruta."
@@ -574,6 +612,8 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     func reset() {
         if activeHelpRequest?.status == .pending { cancelHelp() }
         route = nil
+        transitItinerary = nil
+        travelMode = .walking
         destination = nil
         previewItem = nil
         previewAccessibility = nil
