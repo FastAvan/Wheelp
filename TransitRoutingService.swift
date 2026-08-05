@@ -14,6 +14,8 @@ struct TransitItinerary {
         let lineShort: String?
         let departureStop: String?
         let arrivalStop: String?
+        /// Coordenada de la parada de salida (nil para tramos a pie).
+        let departureStopCoordinate: CLLocationCoordinate2D?
     }
 
     let legs: [Leg]
@@ -59,7 +61,9 @@ enum TransitRoutingService {
         request.setValue(
             "routes.legs.steps.transitDetails,routes.legs.steps.navigationInstruction," +
             "routes.legs.steps.travelMode,routes.legs.steps.distanceMeters," +
-            "routes.legs.steps.staticDuration,routes.duration",
+            "routes.legs.steps.staticDuration,routes.duration," +
+            "routes.legs.steps.transitDetails.stopDetails.departureStop.location," +
+            "routes.legs.steps.transitDetails.stopDetails.arrivalStop.location",
             forHTTPHeaderField: "X-Goog-FieldMask"
         )
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -107,6 +111,14 @@ private struct RoutesAPIResponse: Decodable {
     }
     struct Stop: Decodable {
         let name: String?
+        let location: StopLocation?
+    }
+    struct StopLocation: Decodable {
+        let latLng: LatLng?
+    }
+    struct LatLng: Decodable {
+        let latitude: Double
+        let longitude: Double
     }
     struct TransitLine: Decodable {
         let name: String?
@@ -137,6 +149,10 @@ private struct RoutesAPIResponse: Decodable {
             }
             let instruction = step.navigationInstruction?.instructions
                 ?? (isTransit ? "Toma el transporte" : "Camina")
+            let depLatLng = step.transitDetails?.stopDetails?.departureStop?.location?.latLng
+            let depCoord: CLLocationCoordinate2D? = depLatLng.map {
+                CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+            }
             return TransitItinerary.Leg(
                 mode: isTransit ? .transit : .walk,
                 durationSeconds: parseDuration(step.staticDuration) ?? 0,
@@ -146,7 +162,8 @@ private struct RoutesAPIResponse: Decodable {
                 lineName: step.transitDetails?.transitLine?.name,
                 lineShort: step.transitDetails?.transitLine?.nameShort,
                 departureStop: step.transitDetails?.stopDetails?.departureStop?.name,
-                arrivalStop: step.transitDetails?.stopDetails?.arrivalStop?.name
+                arrivalStop: step.transitDetails?.stopDetails?.arrivalStop?.name,
+                departureStopCoordinate: depCoord
             )
         }
         guard !legs.isEmpty else { return nil }

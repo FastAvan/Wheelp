@@ -35,7 +35,8 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     /// Mensaje de alerta activo cuando el transporte está a punto de llegar.
     var transitAlertMessage: String?
     private var transitAlertIds: [String] = []
-    private var transitHapticTask: Task<Void, Never>?
+    /// IDs de las paradas cuya alerta ya se ha disparado (evita repetición).
+    private var warnedTransitStopIds: Set<UUID> = []
 
     var isCalculating = false
     var isLoadingAccessibility = false
@@ -522,63 +523,73 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
-    // MARK: Alertas de transporte público
+    // MARK: Alertas de transporte público (GPS)
 
-    /// Programa notificaciones locales y, si `isVisualProfile`, vibración en app
-    /// 2 minutos antes de que llegue cada medio de transporte a la parada.
-    func scheduleTransitAlerts(isVisualProfile: Bool) {
+    /// Programa notificaciones locales de respaldo (tiempo estimado)
+    /// para cuando la app está en segundo plano.
+    func scheduleTransitAlerts() {
         cancelTransitAlerts()
         guard let itinerary = transitItinerary else { return }
-
-        let now = Date()
         var elapsedSeconds = 0
-        var index = 0
-        var hapticSchedule: [(offset: TimeInterval, emoji: String, name: String)] = []
-
         for leg in itinerary.legs {
             defer { elapsedSeconds += leg.durationSeconds }
             guard leg.mode == .transit else { continue }
-
-            let alertOffset = max(0, elapsedSeconds - 120)
-            let alertDate = now.addingTimeInterval(TimeInterval(alertOffset))
-            guard alertDate > now.addingTimeInterval(30) else { continue }
-
-            let id = "transit-alert-\(index)"
+            // Notificación de respaldo: ~3 min antes de la salida estimada
+            let alertOffset = max(0, elapsedSeconds - 180)
+            let alertDate = Date().addingTimeInterval(TimeInterval(alertOffset))
+            guard alertDate > Date().addingTimeInterval(60) else { continue }
+            let id = "transit-\(leg.id.uuidString)"
             transitAlertIds.append(id)
-
             let stopText = leg.departureStop.map { " en \($0)" } ?? ""
             let lineName = leg.lineName ?? leg.lineShort ?? "transporte"
             NotificationService.schedule(
                 at: alertDate,
-                title: "\(leg.vehicleEmoji) \(lineName) llega en 2 min",
+                title: "\(leg.vehicleEmoji) \(lineName) llega pronto",
                 body: "Prepárate para subir\(stopText)",
                 id: id
             )
-            hapticSchedule.append((TimeInterval(alertOffset), leg.vehicleEmoji, lineName))
-            index += 1
         }
+    }
 
-        transitHapticTask = Task {
-            for item in hapticSchedule {
-                let wait = item.offset - Date().timeIntervalSince(now)
-                guard wait > 5 else { continue }
-                try? await Task.sleep(for: .seconds(wait))
-                guard !Task.isCancelled else { break }
-                if isVisualProfile {
-                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
-                }
-                transitAlertMessage = "\(item.emoji) \(item.name) llega en 2 minutos"
-                try? await Task.sleep(for: .seconds(7))
-                if !Task.isCancelled { transitAlertMessage = nil }
+    /// Comprueba por GPS si el usuario está cerca de la parada de un tramo de transporte.
+    /// Se llama en cada actualización de ubicación. El aviso se dispara una sola vez
+    /// por parada al entrar en un radio de 200 m.
+    func checkTransitProximity(at location: CLLocation, isVisualProfile: Bool) {
+        guard let itinerary = transitItinerary else { return }
+        let accuracy = location.horizontalAccuracy
+        guard accuracy > 0, accuracy <= 80 else { return }
+
+        for leg in itinerary.legs {
+            guard leg.mode == .transit,
+                  !warnedTransitStopIds.contains(leg.id),
+                  let coord = leg.departureStopCoordinate else { continue }
+
+            let stopLocation = CLLocation(latitude: coord.latitude, longitude: coord.longitude)
+            guard location.distance(from: stopLocation) < 200 else { continue }
+
+            warnedTransitStopIds.insert(leg.id)
+            // La notificación de respaldo ya no hace falta: cancelarla.
+            NotificationService.cancel(id: "transit-\(leg.id.uuidString)")
+
+            if isVisualProfile {
+                UINotificationFeedbackGenerator().notificationOccurred(.warning)
             }
+
+            let lineName = leg.lineName ?? leg.lineShort ?? "transporte"
+            let stopText = leg.departureStop.map { " en \($0)" } ?? ""
+            transitAlertMessage = "\(leg.vehicleEmoji) \(lineName): estás llegando a la parada\(stopText)"
+            Task {
+                try? await Task.sleep(for: .seconds(8))
+                if transitAlertMessage != nil { transitAlertMessage = nil }
+            }
+            return  // Un aviso a la vez
         }
     }
 
     func cancelTransitAlerts() {
         transitAlertIds.forEach { NotificationService.cancel(id: $0) }
         transitAlertIds = []
-        transitHapticTask?.cancel()
-        transitHapticTask = nil
+        warnedTransitStopIds = []
         transitAlertMessage = nil
     }
 

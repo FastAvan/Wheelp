@@ -47,10 +47,10 @@ struct MapHomeView: View {
     var body: some View {
         mappedWithObservers
             .onChange(of: location.lastLocation) { _, newLocation in
-                if let newLocation {
-                    model.updateProgress(newLocation)
-                    model.checkObstacles(at: newLocation, for: profile.type)
-                }
+                guard let newLocation else { return }
+                model.updateProgress(newLocation)
+                model.checkObstacles(at: newLocation, for: profile.type)
+                model.checkTransitProximity(at: newLocation, isVisualProfile: profile.type == .visual)
             }
             .sensoryFeedback(.warning, trigger: model.obstacleWarning) { _, new in new != nil }
             .onChange(of: model.obstacleWarning) { _, warning in
@@ -1367,7 +1367,7 @@ struct MapHomeView: View {
 
     private func handleTransitItineraryChange() {
         Task { await NotificationService.requestPermission() }
-        model.scheduleTransitAlerts(isVisualProfile: profile.type == .visual)
+        model.scheduleTransitAlerts()
     }
 
     private func announceTransitAlert(_ msg: String?) {
