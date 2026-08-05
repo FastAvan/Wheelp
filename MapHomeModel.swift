@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import UIKit
 
 /// Modelo de la pantalla principal: búsqueda → ficha del destino → ruta.
 @MainActor
@@ -31,6 +32,10 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     enum TravelMode { case walking, transit }
     var travelMode: TravelMode = .walking
     var transitItinerary: TransitItinerary?
+    /// Mensaje de alerta activo cuando el transporte está a punto de llegar.
+    var transitAlertMessage: String?
+    private var transitAlertIds: [String] = []
+    private var transitHapticTask: Task<Void, Never>?
 
     var isCalculating = false
     var isLoadingAccessibility = false
@@ -517,6 +522,66 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
+    // MARK: Alertas de transporte público
+
+    /// Programa notificaciones locales y, si `isVisualProfile`, vibración en app
+    /// 2 minutos antes de que llegue cada medio de transporte a la parada.
+    func scheduleTransitAlerts(isVisualProfile: Bool) {
+        cancelTransitAlerts()
+        guard let itinerary = transitItinerary else { return }
+
+        let now = Date()
+        var elapsedSeconds = 0
+        var index = 0
+        var hapticSchedule: [(offset: TimeInterval, emoji: String, name: String)] = []
+
+        for leg in itinerary.legs {
+            defer { elapsedSeconds += leg.durationSeconds }
+            guard leg.mode == .transit else { continue }
+
+            let alertOffset = max(0, elapsedSeconds - 120)
+            let alertDate = now.addingTimeInterval(TimeInterval(alertOffset))
+            guard alertDate > now.addingTimeInterval(30) else { continue }
+
+            let id = "transit-alert-\(index)"
+            transitAlertIds.append(id)
+
+            let stopText = leg.departureStop.map { " en \($0)" } ?? ""
+            let lineName = leg.lineName ?? leg.lineShort ?? "transporte"
+            NotificationService.schedule(
+                at: alertDate,
+                title: "\(leg.vehicleEmoji) \(lineName) llega en 2 min",
+                body: "Prepárate para subir\(stopText)",
+                id: id
+            )
+            hapticSchedule.append((TimeInterval(alertOffset), leg.vehicleEmoji, lineName))
+            index += 1
+        }
+
+        transitHapticTask = Task {
+            for item in hapticSchedule {
+                let wait = item.offset - Date().timeIntervalSince(now)
+                guard wait > 5 else { continue }
+                try? await Task.sleep(for: .seconds(wait))
+                guard !Task.isCancelled else { break }
+                if isVisualProfile {
+                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                }
+                transitAlertMessage = "\(item.emoji) \(item.name) llega en 2 minutos"
+                try? await Task.sleep(for: .seconds(7))
+                if !Task.isCancelled { transitAlertMessage = nil }
+            }
+        }
+    }
+
+    func cancelTransitAlerts() {
+        transitAlertIds.forEach { NotificationService.cancel(id: $0) }
+        transitAlertIds = []
+        transitHapticTask?.cancel()
+        transitHapticTask = nil
+        transitAlertMessage = nil
+    }
+
     /// Calcula la RUTA ADAPTADA: pide alternativas, cuenta obstáculos por versión,
     /// elige la que menos tenga. Si quedan inevitables, se ofrece el ayudante.
     private func startWalkingRoute(from source: CLLocationCoordinate2D?, profile: AccessibilityProfile) async {
@@ -611,6 +676,7 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     /// Vuelve a la búsqueda limpia.
     func reset() {
         if activeHelpRequest?.status == .pending { cancelHelp() }
+        cancelTransitAlerts()
         route = nil
         transitItinerary = nil
         travelMode = .walking

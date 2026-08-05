@@ -45,6 +45,164 @@ struct MapHomeView: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
+        mappedWithObservers
+            .onChange(of: location.lastLocation) { _, newLocation in
+                if let newLocation {
+                    model.updateProgress(newLocation)
+                    model.checkObstacles(at: newLocation, for: profile.type)
+                }
+            }
+            .sensoryFeedback(.warning, trigger: model.obstacleWarning) { _, new in new != nil }
+            .onChange(of: model.obstacleWarning) { _, warning in
+                if let warning, profile.voiceGuidance { speech.announce("Atención: \(warning).") }
+            }
+            .sensoryFeedback(.impact, trigger: model.currentStepIndex) { _, _ in
+                profile.hapticCues && model.isNavigating
+            }
+            .onChange(of: model.currentStepIndex) { _, _ in
+                if model.isNavigating { announceCurrentStep() }
+            }
+            .onChange(of: model.isNavigating) { _, navigating in
+                if navigating {
+                    headingUp = true
+                    camera = .userLocation(followsHeading: true, fallback: .automatic)
+                    announceCurrentStep()
+                } else {
+                    headingUp = false
+                }
+            }
+    }
+
+    // Observers de transporte público (split para el type-checker).
+    private var mappedWithObservers: some View {
+        mappedWithMapObservers
+            .onChange(of: model.transitItinerary != nil) { _, hasItinerary in
+                if hasItinerary { handleTransitItineraryChange() }
+            }
+            .sensoryFeedback(.warning, trigger: model.transitAlertMessage) { _, msg in msg != nil }
+            .onChange(of: model.transitAlertMessage) { _, msg in announceTransitAlert(msg) }
+            .eraseToAnyView()
+    }
+
+    // Observers de ruta y mapa (split para el type-checker).
+    private var mappedWithMapObservers: some View {
+        mappedWithSheets
+            .onChange(of: appState.voiceRate) { _, newRate in speech.rate = Float(newRate) }
+            .onChange(of: selectedFeature) { _, feature in handleFeatureSelection(feature) }
+            .onChange(of: model.previewItem) { _, item in handlePreviewItemChange(item) }
+            .onChange(of: model.route) { _, newRoute in handleRouteChange(newRoute) }
+            .sensoryFeedback(.success, trigger: model.route != nil) { _, current in
+                profile.hapticCues && current
+            }
+            .eraseToAnyView()
+    }
+
+    // Hojas, tareas de inicio y alertas (split para el type-checker).
+    private var mappedWithSheets: some View {
+        coreMap
+            .sheet(isPresented: $showSettings) { SettingsView() }
+            .sheet(isPresented: $showHelperRequests) {
+                HelperRequestsView(userLocation: location.lastLocation) { request in
+                    visualize(request)
+                }
+            }
+            .sheet(isPresented: $showHelpSetup) {
+                if let item = model.destination ?? model.previewItem {
+                    HelpRequestSetupView(
+                        profile: profile,
+                        destinationName: item.name ?? "Destino",
+                        originCoordinate: location.lastLocation?.coordinate,
+                        destinationCoordinate: item.placemark.coordinate,
+                        steps: model.steps
+                    ) { meeting, meetingName, meetingCoordinate, scheduledAt in
+                        Task {
+                            await model.requestHelp(
+                                disabilityType: profile.type,
+                                requesterName: appState.publicName,
+                                origin: location.lastLocation?.coordinate,
+                                meeting: meeting,
+                                meetingName: meetingName,
+                                meetingCoordinate: meetingCoordinate,
+                                scheduledAt: scheduledAt
+                            )
+                        }
+                    }
+                }
+            }
+            .sheet(item: $chatRequest) { request in HelpChatView(request: request) }
+            .sheet(isPresented: $showContribute) {
+                ContributeAccessibilityView(
+                    profile: profile,
+                    placeName: model.previewItem?.name ?? "este lugar",
+                    initial: currentFeatureStatuses()
+                ) { features in
+                    Task { await model.submitContribution(features, profile: profile) }
+                }
+            }
+            .sheet(item: $contributeForType) { type in
+                ContributeAccessibilityView(
+                    profile: AccessibilityProfile.make(for: type),
+                    placeName: model.previewItem?.name ?? "este lugar",
+                    initial: [:]
+                ) { features in
+                    Task { await model.submitHelperContribution(features, forType: type) }
+                }
+            }
+            .sheet(item: $finishedContribution) { target in
+                ContributeAccessibilityView(
+                    profile: profile,
+                    placeName: target.item.name ?? "este lugar",
+                    initial: [:]
+                ) { features in
+                    Task { await model.submitContribution(for: target.item, features, profile: profile) }
+                }
+            }
+            .sheet(item: $pendingHelperRating) { ratingTarget in
+                HelperRatingView(target: ratingTarget) { pendingHelperRating = nil }
+            }
+            .sheet(isPresented: $showTrackingMessage) {
+                if let request = model.activeHelpRequest,
+                   MFMessageComposeViewController.canSendText(),
+                   !appState.trustedContactPhone.isEmpty {
+                    MessageComposerView(
+                        recipients: [appState.trustedContactPhone],
+                        body: trackingMessageBody(request)
+                    )
+                }
+            }
+            .task {
+                location.requestPermission()
+                speech.isEnabled = profile.voiceGuidance
+                speech.rate = Float(appState.voiceRate)
+                speech.configureSession()
+                await model.loadSavedPlaces()
+                if appState.isHelper { myAvatarURL = await HelperService.currentAvatarURL() }
+            }
+            .onChange(of: showSettings) { _, isShowing in
+                guard !isShowing, appState.isHelper else { return }
+                Task { myAvatarURL = await HelperService.currentAvatarURL() }
+            }
+            .task(id: appState.isHelper) { await pollForHelperRequests() }
+            .onChange(of: model.activeHelpRequest?.status) { _, newStatus in
+                handleHelpStatusChange(newStatus)
+            }
+            .onChange(of: model.activeHelpRequest?.helperId) { _, helperId in
+                handleHelperIdChange(helperId)
+            }
+            .alert("Guardar favorito", isPresented: $showAliasPrompt) {
+                TextField("Nombre corto (casa, trabajo…)", text: $aliasText)
+                Button("Guardar") {
+                    Task { await model.toggleFavorite(alias: aliasText.isEmpty ? nil : aliasText) }
+                }
+                Button("Cancelar", role: .cancel) {}
+            } message: {
+                Text("Podrás llegar más rápido y, en la versión de voz, pedirlo por su nombre.")
+            }
+            .eraseToAnyView()
+    }
+
+    // El mapa base: marcadores, controles y paneles (sin hojas ni tareas).
+    private var coreMap: some View {
         Map(position: $camera, selection: $selectedFeature) {
             UserAnnotation()
 
@@ -79,7 +237,6 @@ struct MapHomeView: View {
                     Marker("Encuentro", systemImage: "figure.2", coordinate: request.meetingCoordinate)
                         .tint(.purple)
                 } else {
-                    // Antes de aceptar solo se conoce la zona aproximada.
                     MapCircle(center: request.meetingCoordinate, radius: 700)
                         .foregroundStyle(Color.blue.opacity(0.15))
                         .stroke(Color.blue, lineWidth: 2)
@@ -91,234 +248,13 @@ struct MapHomeView: View {
             MapCompass()
         }
         .ignoresSafeArea(edges: .bottom)
-        // El teclado no debe recolocar el mapa ni sus paneles: la barra de
-        // búsqueda está arriba y no lo necesita; sin esto, todo "salta".
-        // Además del modificador exterior, cada panel debe ignorarlo por su
-        // cuenta: el contenido de un safeAreaInset esquiva el teclado solo.
         .safeAreaInset(edge: .top) { searchPanel.ignoresSafeArea(.keyboard) }
         .safeAreaInset(edge: .bottom) { bottomCard.ignoresSafeArea(.keyboard) }
         .ignoresSafeArea(.keyboard)
         .overlay(alignment: .top) { routeReadyBanner }
-        .sheet(isPresented: $showSettings) { SettingsView() }
-        .sheet(isPresented: $showHelperRequests) {
-            HelperRequestsView(userLocation: location.lastLocation) { request in
-                visualize(request)
-            }
-        }
-        .sheet(isPresented: $showHelpSetup) {
-            if let item = model.destination ?? model.previewItem {
-                HelpRequestSetupView(
-                    profile: profile,
-                    destinationName: item.name ?? "Destino",
-                    originCoordinate: location.lastLocation?.coordinate,
-                    destinationCoordinate: item.placemark.coordinate,
-                    steps: model.steps
-                ) { meeting, meetingName, meetingCoordinate, scheduledAt in
-                    Task {
-                        await model.requestHelp(
-                            disabilityType: profile.type,
-                            requesterName: appState.publicName,
-                            origin: location.lastLocation?.coordinate,
-                            meeting: meeting,
-                            meetingName: meetingName,
-                            meetingCoordinate: meetingCoordinate,
-                            scheduledAt: scheduledAt
-                        )
-                    }
-                }
-            }
-        }
-        .sheet(item: $chatRequest) { request in
-            HelpChatView(request: request)
-        }
-        .sheet(isPresented: $showContribute) {
-            ContributeAccessibilityView(
-                profile: profile,
-                placeName: model.previewItem?.name ?? "este lugar",
-                initial: currentFeatureStatuses()
-            ) { features in
-                Task { await model.submitContribution(features, profile: profile) }
-            }
-        }
-        .sheet(item: $contributeForType) { type in
-            ContributeAccessibilityView(
-                profile: AccessibilityProfile.make(for: type),
-                placeName: model.previewItem?.name ?? "este lugar",
-                initial: [:]
-            ) { features in
-                Task { await model.submitHelperContribution(features, forType: type) }
-            }
-        }
-        // Invitación a aportar la accesibilidad del destino recién visitado.
-        .sheet(item: $finishedContribution) { target in
-            ContributeAccessibilityView(
-                profile: profile,
-                placeName: target.item.name ?? "este lugar",
-                initial: [:]
-            ) { features in
-                Task { await model.submitContribution(for: target.item, features, profile: profile) }
-            }
-        }
-        // Valoración del ayudante tras finalizar la ruta.
-        .sheet(item: $pendingHelperRating) { ratingTarget in
-            HelperRatingView(target: ratingTarget) { pendingHelperRating = nil }
-        }
-        // Aviso de inicio de sesión al contacto de confianza.
-        .sheet(isPresented: $showTrackingMessage) {
-            if let request = model.activeHelpRequest,
-               MFMessageComposeViewController.canSendText(),
-               !appState.trustedContactPhone.isEmpty {
-                MessageComposerView(
-                    recipients: [appState.trustedContactPhone],
-                    body: trackingMessageBody(request)
-                )
-            }
-        }
-        .task {
-            location.requestPermission()
-            speech.isEnabled = profile.voiceGuidance
-            speech.rate = Float(appState.voiceRate)
-            speech.configureSession()
-            await model.loadSavedPlaces()
-            if appState.isHelper {
-                myAvatarURL = await HelperService.currentAvatarURL()
-            }
-        }
-        .onChange(of: showSettings) { _, isShowing in
-            guard !isShowing, appState.isHelper else { return }
-            Task { myAvatarURL = await HelperService.currentAvatarURL() }
-        }
-        // Notificaciones locales para ayudantes: detecta nuevas peticiones mientras
-        // la app está en primer plano y la lista de peticiones no está abierta.
-        .task(id: appState.isHelper) {
-            guard appState.isHelper else { return }
-            await NotificationService.requestPermission()
-            var knownRequestIds: Set<UUID> = []
-            while !Task.isCancelled {
-                let requests = await HelperService.fetchPending(near: location.lastLocation?.coordinate)
-                let newIds = Set(requests.map(\.id))
-                let novelIds = newIds.subtracting(knownRequestIds)
-                if !knownRequestIds.isEmpty, !novelIds.isEmpty {
-                    NotificationService.notify(
-                        title: "Nueva petición de ayuda",
-                        body: requests.first(where: { novelIds.contains($0.id) })
-                            .map { "Alguien va a \($0.placeName) y necesita ayuda." }
-                            ?? "Hay una petición de ayuda cerca de ti."
-                    )
-                }
-                knownRequestIds = newIds
-                try? await Task.sleep(for: .seconds(30))
-            }
-        }
-        .onChange(of: model.activeHelpRequest?.status) { _, newStatus in
-            guard newStatus == .inProgress,
-                  let id = model.activeHelpRequest?.id,
-                  trackingShownForRequest != id,
-                  !appState.trustedContactPhone.isEmpty,
-                  MFMessageComposeViewController.canSendText() else { return }
-            trackingShownForRequest = id
-            showTrackingMessage = true
-        }
-        .onChange(of: model.activeHelpRequest?.helperId) { _, helperId in
-            // Cuando se asigna ayudante, cargar su foto y el código de verificación.
-            activeHelpMeetingCode = nil
-            helperAvatarURL = nil
-            guard let helperId else { return }
-            Task {
-                async let code = HelperService.meetingCode(for: model.activeHelpRequest!)
-                async let avatar = HelperService.helperAvatarURL(for: helperId)
-                activeHelpMeetingCode = await code
-                helperAvatarURL = await avatar
-            }
-        }
-        .alert("Guardar favorito", isPresented: $showAliasPrompt) {
-            TextField("Nombre corto (casa, trabajo…)", text: $aliasText)
-            Button("Guardar") {
-                Task { await model.toggleFavorite(alias: aliasText.isEmpty ? nil : aliasText) }
-            }
-            Button("Cancelar", role: .cancel) {}
-        } message: {
-            Text("Podrás llegar más rápido y, en la versión de voz, pedirlo por su nombre.")
-        }
-        .onChange(of: appState.voiceRate) { _, newRate in
-            speech.rate = Float(newRate)
-        }
-        .onChange(of: selectedFeature) { _, feature in
-            guard let feature else { return }
-            // Resetear inmediatamente para suprimir el callout nativo de Apple Maps.
-            selectedFeature = nil
-            guard !model.isNavigating else { return }
-            Task {
-                let request = MKMapItemRequest(feature: feature)
-                guard let item = try? await request.mapItem else { return }
-                model.preview(item, profile: profile)
-                searchFocused = false
-            }
-        }
-        .onChange(of: model.previewItem) { _, item in
-            guard let item else { return }
-            headingUp = false
-            withAnimation(.easeInOut) {
-                camera = .region(MKCoordinateRegion(
-                    center: item.placemark.coordinate,
-                    latitudinalMeters: 1200,
-                    longitudinalMeters: 1200
-                ))
-            }
-            announcePreview()
-        }
-        .onChange(of: model.route) { _, newRoute in
-            guard let route = newRoute else { return }
-            headingUp = false
-            withAnimation(.easeInOut) {
-                camera = .rect(route.polyline.boundingMapRect)
-            }
-            announceRoute()
-            // Confirmación visual destacada para la versión Auditiva.
-            if profile.hapticCues {
-                withAnimation { showRouteBanner = true }
-                Task {
-                    try? await Task.sleep(for: .seconds(2.5))
-                    withAnimation { showRouteBanner = false }
-                }
-            }
-        }
-        // Vibración al obtener la ruta para la versión Auditiva.
-        .sensoryFeedback(.success, trigger: model.route != nil) { _, current in
-            profile.hapticCues && current
-        }
-        // Seguimiento de la posición para avanzar de paso automáticamente.
-        .onChange(of: location.lastLocation) { _, newLocation in
-            if let newLocation {
-                model.updateProgress(newLocation)
-                model.checkObstacles(at: newLocation, for: profile.type)
-            }
-        }
-        // Aviso de obstáculo: vibración siempre y voz en la versión Visual.
-        .sensoryFeedback(.warning, trigger: model.obstacleWarning) { _, new in
-            new != nil
-        }
-        .onChange(of: model.obstacleWarning) { _, warning in
-            if let warning, profile.voiceGuidance {
-                speech.announce("Atención: \(warning).")
-            }
-        }
-        // Vibración al cambiar de paso durante la navegación.
-        .sensoryFeedback(.impact, trigger: model.currentStepIndex) { _, _ in
-            profile.hapticCues && model.isNavigating
-        }
-        .onChange(of: model.currentStepIndex) { _, _ in
-            if model.isNavigating { announceCurrentStep() }
-        }
-        .onChange(of: model.isNavigating) { _, navigating in
-            if navigating {
-                headingUp = true
-                camera = .userLocation(followsHeading: true, fallback: .automatic)
-                announceCurrentStep()
-            } else {
-                headingUp = false
-            }
-        }
+        // AnyView rompe la cadena de tipos genéricos anidados del Map
+        // para que el type-checker pueda manejar los modificadores posteriores.
+        .eraseToAnyView()
     }
 
     // MARK: - Banner de confirmación (versión Auditiva)
@@ -1165,6 +1101,16 @@ struct MapHomeView: View {
 
     private var transitCard: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if let alertMsg = model.transitAlertMessage {
+                Label(alertMsg, systemImage: "bell.fill")
+                    .font(profile.bodyFont.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Color.orange, in: RoundedRectangle(cornerRadius: 12))
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             if let itinerary = model.transitItinerary {
                 HStack {
                     Label(itinerary.formattedDuration, systemImage: "bus.fill")
@@ -1367,6 +1313,101 @@ struct MapHomeView: View {
         .padding(.bottom, 8)
     }
 
+    // MARK: - Handlers
+
+    private func pollForHelperRequests() async {
+        guard appState.isHelper else { return }
+        await NotificationService.requestPermission()
+        var knownRequestIds: Set<UUID> = []
+        while !Task.isCancelled {
+            let requests = await HelperService.fetchPending(near: location.lastLocation?.coordinate)
+            let newIds = Set(requests.map(\.id))
+            let novelIds = newIds.subtracting(knownRequestIds)
+            if !knownRequestIds.isEmpty, !novelIds.isEmpty {
+                NotificationService.notify(
+                    title: "Nueva petición de ayuda",
+                    body: requests.first(where: { novelIds.contains($0.id) })
+                        .map { "Alguien va a \($0.placeName) y necesita ayuda." }
+                        ?? "Hay una petición de ayuda cerca de ti."
+                )
+            }
+            knownRequestIds = newIds
+            try? await Task.sleep(for: .seconds(30))
+        }
+    }
+
+    private func handleRouteChange(_ route: MKRoute?) {
+        guard let route else { return }
+        headingUp = false
+        withAnimation(.easeInOut) {
+            camera = .rect(route.polyline.boundingMapRect)
+        }
+        announceRoute()
+        if profile.hapticCues {
+            withAnimation { showRouteBanner = true }
+            Task {
+                try? await Task.sleep(for: .seconds(2.5))
+                withAnimation { showRouteBanner = false }
+            }
+        }
+    }
+
+    private func handlePreviewItemChange(_ item: MKMapItem?) {
+        guard let item else { return }
+        headingUp = false
+        withAnimation(.easeInOut) {
+            camera = .region(MKCoordinateRegion(
+                center: item.placemark.coordinate,
+                latitudinalMeters: 1200,
+                longitudinalMeters: 1200
+            ))
+        }
+        announcePreview()
+    }
+
+    private func handleTransitItineraryChange() {
+        Task { await NotificationService.requestPermission() }
+        model.scheduleTransitAlerts(isVisualProfile: profile.type == .visual)
+    }
+
+    private func announceTransitAlert(_ msg: String?) {
+        if let msg, profile.voiceGuidance { speech.announce(msg) }
+    }
+
+    private func handleFeatureSelection(_ feature: MapFeature?) {
+        guard let feature else { return }
+        selectedFeature = nil
+        guard !model.isNavigating else { return }
+        Task {
+            let request = MKMapItemRequest(feature: feature)
+            guard let item = try? await request.mapItem else { return }
+            model.preview(item, profile: profile)
+            searchFocused = false
+        }
+    }
+
+    private func handleHelperIdChange(_ helperId: UUID?) {
+        activeHelpMeetingCode = nil
+        helperAvatarURL = nil
+        guard let helperId else { return }
+        Task {
+            async let code = HelperService.meetingCode(for: model.activeHelpRequest!)
+            async let avatar = HelperService.helperAvatarURL(for: helperId)
+            activeHelpMeetingCode = await code
+            helperAvatarURL = await avatar
+        }
+    }
+
+    private func handleHelpStatusChange(_ newStatus: HelpRequest.Status?) {
+        guard newStatus == .inProgress,
+              let id = model.activeHelpRequest?.id,
+              trackingShownForRequest != id,
+              !appState.trustedContactPhone.isEmpty,
+              MFMessageComposeViewController.canSendText() else { return }
+        trackingShownForRequest = id
+        showTrackingMessage = true
+    }
+
     // MARK: - Anuncios por voz (versión Visual)
 
     private func announcePreview() {
@@ -1430,4 +1471,8 @@ struct MapHomeView: View {
         if minutes < 60 { return "\(minutes) min" }
         return "\(minutes / 60) h \(minutes % 60) min"
     }
+}
+
+private extension View {
+    func eraseToAnyView() -> AnyView { AnyView(self) }
 }
