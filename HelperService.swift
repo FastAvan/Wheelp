@@ -163,6 +163,36 @@ enum HelperService {
     private static let table = "help_requests"
     private static let messagesTable = "help_messages"
 
+    // MARK: - Ubicación del ayudante
+
+    private static var lastLocationUpdate: Date = .distantPast
+    private static var lastLocationCoord: CLLocationCoordinate2D?
+
+    /// Actualiza lat/lng del ayudante en `helpers`. Throttling: solo escribe si han pasado
+    /// más de 5 minutos O el ayudante se ha movido más de 200 m desde la última vez.
+    static func updateHelperLocation(_ location: CLLocation) async {
+        let now = Date()
+        if let last = lastLocationCoord {
+            let elapsed = now.timeIntervalSince(lastLocationUpdate)
+            let moved = location.distance(from: CLLocation(latitude: last.latitude, longitude: last.longitude))
+            guard elapsed > 300 || moved > 200 else { return }
+        }
+        guard let userId = try? await supabase.auth.session.user.id else { return }
+        struct Update: Encodable {
+            let latitude: Double
+            let longitude: Double
+        }
+        do {
+            try await supabase
+                .from("helpers")
+                .update(Update(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude))
+                .eq("user_id", value: userId)
+                .execute()
+            lastLocationUpdate = now
+            lastLocationCoord = location.coordinate
+        } catch {}
+    }
+
     /// ¿El usuario actual está dado de alta como ayudante (tabla `helpers`)?
     static func isRegisteredHelper() async -> Bool {
         struct Row: Codable { let userId: UUID

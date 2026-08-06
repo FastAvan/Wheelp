@@ -51,6 +51,7 @@ struct MapHomeView: View {
                 model.updateProgress(newLocation)
                 model.checkObstacles(at: newLocation, for: profile.type)
                 model.checkTransitProximity(at: newLocation, isVisualProfile: profile.type == .visual)
+                if appState.isHelper { Task { await HelperService.updateHelperLocation(newLocation) } }
             }
             .sensoryFeedback(.warning, trigger: model.obstacleWarning) { _, new in new != nil }
             .onChange(of: model.obstacleWarning) { _, warning in
