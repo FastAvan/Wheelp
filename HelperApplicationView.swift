@@ -220,9 +220,15 @@ struct HelperApplicationView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 72)).foregroundStyle(Color.wheelpGreen)
             Text("Solicitud enviada").font(.title2.bold())
-            Text("El equipo de Wheelp revisará tu solicitud en breve. Te contactaremos para que nos envíes el certificado de antecedentes penales y completar la verificación.")
+            Text("El equipo de Wheelp revisará tu solicitud en breve. Envía tu certificado de antecedentes penales a:")
                 .font(.body).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).padding(.horizontal, 24)
+            Link(destination: URL(string: "mailto:verificacion@wheelp.com?subject=Antecedentes%20penales")!) {
+                Label("verificacion@wheelp.com", systemImage: "envelope")
+                    .font(.subheadline.weight(.medium))
+            }
+            .buttonStyle(.bordered)
+            .tint(Color.wheelpGreen)
             Spacer()
             Button("Cerrar") { onSubmit?(); dismiss() }
                 .buttonStyle(.wheelpPrimary)
@@ -251,8 +257,17 @@ struct HelperApplicationView: View {
                         stepRow(number: "1", title: "Accede a la Sede Electrónica", body: "Entra en la sede electrónica del Ministerio de Justicia de España (sede.mjusticia.gob.es) y busca \"Certificado de Antecedentes Penales\".")
                         stepRow(number: "2", title: "Identifícate", body: "Puedes usar Cl@ve, DNI electrónico o certificado digital. También existe la opción presencial en cualquier Registro Civil o Gerencia Territorial de Justicia.")
                         stepRow(number: "3", title: "Solicita el certificado", body: "Elige la opción de certificado para uso privado. Es gratuito y se emite al instante en formato PDF con sello electrónico oficial.")
-                        stepRow(number: "4", title: "Envíanoslo", body: "Una vez aprobada tu solicitud inicial, el equipo de Wheelp te pedirá que nos lo envíes por correo. Revisamos todos los certificados manualmente.")
+                        stepRow(number: "4", title: "Envíanoslo por correo", body: "Manda el PDF a verificacion@wheelp.com con el asunto \"Antecedentes penales – [tu nombre]\". Revisamos todos los certificados manualmente antes de aprobar el alta.")
                     }
+
+                    Divider()
+
+                    Link(destination: URL(string: "mailto:verificacion@wheelp.com?subject=Antecedentes%20penales")!) {
+                        Label("Abrir correo a verificacion@wheelp.com", systemImage: "envelope.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color.wheelpGreen)
 
                     Divider()
 
