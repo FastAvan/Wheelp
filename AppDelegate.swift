@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) async -> UIBackgroundFetchResult {
         await ChatNotifier.shared.checkOnce()
         await AdminNotifier.shared.checkOnce()
+        await HelpRequestNotifier.shared.checkOnce()
         return .newData
     }
 }

@@ -125,7 +125,10 @@ final class AppState {
         if let session {
             isSignedIn = true
             userName = session.user.email
-            Task { @MainActor in isHelper = await HelperService.isRegisteredHelper() }
+            Task { @MainActor in
+                isHelper = await HelperService.isRegisteredHelper()
+                if isHelper { HelpRequestNotifier.shared.start() }
+            }
             if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
         }
     }
@@ -134,7 +137,10 @@ final class AppState {
         let session = try await supabase.auth.signIn(email: email, password: password)
         userName = session.user.email
         isSignedIn = true
-        Task { @MainActor in isHelper = await HelperService.isRegisteredHelper() }
+        Task { @MainActor in
+            isHelper = await HelperService.isRegisteredHelper()
+            if isHelper { HelpRequestNotifier.shared.start() }
+        }
         if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
 
@@ -159,11 +165,15 @@ final class AppState {
         ))
         userName = session.user.email
         isSignedIn = true
-        Task { @MainActor in isHelper = await HelperService.isRegisteredHelper() }
+        Task { @MainActor in
+            isHelper = await HelperService.isRegisteredHelper()
+            if isHelper { HelpRequestNotifier.shared.start() }
+        }
         if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
 
     func signOut() async {
+        HelpRequestNotifier.shared.stop()
         AdminNotifier.shared.stop()
         await PushTokenService.delete()
         try? await supabase.auth.signOut()
@@ -182,6 +192,7 @@ final class AppState {
         [Keys.onboarded, Keys.disability, Keys.voiceControl,
          Keys.voiceRate, Keys.displayName, Keys.trustedContact, Keys.termsAccepted]
             .forEach { defaults.removeObject(forKey: $0) }
+        HelpRequestNotifier.shared.stop()
         AdminNotifier.shared.stop()
         isSignedIn = false
         userName = nil
