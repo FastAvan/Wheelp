@@ -1,9 +1,9 @@
 import Foundation
 
-/// Detecta solicitudes de ayuda nuevas para notificar al ayudante.
-/// El push real lo dispara el backend (trigger `push_new_request` → `send-push` → APNs).
-/// Este notifier responde al silent push en `AppDelegate` y muestra la notificación local.
-/// El sondeo periódico es solo un fallback por si el push llega tarde o el sistema lo suprime.
+/// Mantiene el estado de solicitudes de ayuda del ayudante actualizado en background.
+/// El backend envía un alert push directamente (send-push v4 con alert + content-available),
+/// así que este notifier NO muestra notificaciones locales para evitar duplicados.
+/// Solo actualiza el estado interno para que HelperRequestsView tenga datos frescos al abrirse.
 @MainActor
 final class HelpRequestNotifier {
     static let shared = HelpRequestNotifier()
@@ -32,28 +32,16 @@ final class HelpRequestNotifier {
         primed = false
     }
 
-    /// Comprobación puntual desde `AppDelegate` cuando llega el silent push del servidor.
+    /// Llamado desde `AppDelegate` cuando llega el push con content-available del servidor.
+    /// Refresca el estado sin mostrar notificación (el backend ya envió el alert push).
     func checkOnce() async {
         await check()
     }
 
     private func check() async {
-        // Sin filtro de ubicación en background: el backend ya restringió el push a helpers.
-        // La distancia exacta la ve el ayudante al abrir HelperRequestsView.
         let requests = await HelperService.fetchPending(near: nil)
         let ids = Set(requests.map { $0.id })
-        defer {
-            knownIds = ids
-            primed = true
-        }
-        guard primed else { return }
-        let newCount = ids.subtracting(knownIds).count
-        guard newCount > 0 else { return }
-        NotificationService.notify(
-            title: "Wheelp: nueva petición de ayuda",
-            body: newCount == 1
-                ? "Alguien cerca necesita ayuda. Ábrela para ver los detalles."
-                : "\(newCount) nuevas peticiones de ayuda cerca de ti."
-        )
+        knownIds = ids
+        primed = true
     }
 }
