@@ -178,6 +178,8 @@ enum HelperService {
             guard elapsed > 300 || moved > 200 else { return }
         }
         guard let userId = try? await supabase.auth.session.user.id else { return }
+        // Coordenadas aproximadas (~1 km) — proporcionalidad RGPD art. 5.1.c.
+        // El filtrado de ayudantes cercanos no requiere precisión exacta.
         struct Update: Encodable {
             let latitude: Double
             let longitude: Double
@@ -185,7 +187,10 @@ enum HelperService {
         do {
             try await supabase
                 .from("helpers")
-                .update(Update(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude))
+                .update(Update(
+                    latitude: HelpCrypto.approximate(location.coordinate.latitude),
+                    longitude: HelpCrypto.approximate(location.coordinate.longitude)
+                ))
                 .eq("user_id", value: userId)
                 .execute()
             lastLocationUpdate = now
