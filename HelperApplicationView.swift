@@ -157,7 +157,7 @@ struct HelperApplicationView: View {
             } header: {
                 Text("Antecedentes penales")
             } footer: {
-                Text("El certificado de antecedentes penales es obligatorio para ejercer como ayudante. El equipo de Wheelp lo solicitará durante la revisión de tu solicitud.")
+                Text("Obligatorio para ser aprobado. Deberás enviarlo a verificacion@wheelp.com tras enviar esta solicitud. Sin él no se puede activar tu cuenta de ayudante.")
             }
             .sheet(isPresented: $showCriminalCheckInfo) { criminalCheckInfoSheet }
 
@@ -215,23 +215,30 @@ struct HelperApplicationView: View {
     // MARK: - Pantalla de éxito
 
     private var successView: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 72)).foregroundStyle(Color.wheelpGreen)
             Text("Solicitud enviada").font(.title2.bold())
-            Text("El equipo de Wheelp revisará tu solicitud en breve. Envía tu certificado de antecedentes penales a:")
+            Text("Para completar la aprobación, envía ahora tu certificado de antecedentes penales a:")
                 .font(.body).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).padding(.horizontal, 24)
             Link(destination: URL(string: "mailto:verificacion@wheelp.com?subject=Antecedentes%20penales")!) {
-                Label("verificacion@wheelp.com", systemImage: "envelope")
-                    .font(.subheadline.weight(.medium))
+                Label("verificacion@wheelp.com", systemImage: "envelope.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
             .tint(Color.wheelpGreen)
+            .padding(.horizontal, 28)
+            Label("Sin el certificado no podemos activar tu cuenta de ayudante.", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.orange)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 28)
             Spacer()
             Button("Cerrar") { onSubmit?(); dismiss() }
-                .buttonStyle(.wheelpPrimary)
+                .buttonStyle(.wheelpOutline)
                 .padding(.horizontal, 28).padding(.bottom, 28)
         }
         .navigationTitle("Solicitud enviada")
