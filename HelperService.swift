@@ -198,6 +198,33 @@ enum HelperService {
         } catch {}
     }
 
+    // MARK: - Disponibilidad del ayudante
+
+    /// Actualiza el campo `available` en `helpers` para el ayudante actual.
+    static func updateAvailability(_ available: Bool) async {
+        guard let userId = try? await supabase.auth.session.user.id else { return }
+        struct Update: Encodable { let available: Bool }
+        _ = try? await supabase
+            .from("helpers")
+            .update(Update(available: available))
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
+    /// Devuelve la disponibilidad guardada en Supabase (true si no existe la columna aún).
+    static func fetchAvailability() async -> Bool {
+        struct Row: Decodable { let available: Bool? }
+        guard let userId = try? await supabase.auth.session.user.id else { return true }
+        let row: Row? = try? await supabase
+            .from("helpers")
+            .select("available")
+            .eq("user_id", value: userId)
+            .single()
+            .execute()
+            .value
+        return row?.available ?? true
+    }
+
     /// ¿El usuario actual está dado de alta como ayudante (tabla `helpers`)?
     static func isRegisteredHelper() async -> Bool {
         struct Row: Codable { let userId: UUID

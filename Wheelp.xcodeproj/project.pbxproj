@@ -45,6 +45,7 @@
 		7DAD65C63006860000CBB79B /* WalkingPaceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65C53006860000CBB79B /* WalkingPaceService.swift */; };
 		7DD3E14930196A900066E578 /* TermsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E14830196A900066E578 /* TermsView.swift */; };
 		7DD3E14B30196AD30066E578 /* HelperApplicationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */; };
+		7DDD6C803024A1BE00E34CA0 /* HelpRequestNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DDD6C7F3024A1BE00E34CA0 /* HelpRequestNotifier.swift */; };
 		7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */; };
 		7DE071F6300032800089CE1E /* ChatNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F5300032800089CE1E /* ChatNotifier.swift */; };
 		7DE112092FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */; };
@@ -94,6 +95,7 @@
 		7DAD65C53006860000CBB79B /* WalkingPaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkingPaceService.swift; sourceTree = "<group>"; };
 		7DD3E14830196A900066E578 /* TermsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsView.swift; sourceTree = "<group>"; };
 		7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperApplicationView.swift; sourceTree = "<group>"; };
+		7DDD6C7F3024A1BE00E34CA0 /* HelpRequestNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestNotifier.swift; sourceTree = "<group>"; };
 		7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteObstaclesService.swift; sourceTree = "<group>"; };
 		7DE071F5300032800089CE1E /* ChatNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatNotifier.swift; sourceTree = "<group>"; };
 		7DE112082FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooglePlacesAccessibilityService.swift; sourceTree = "<group>"; };
@@ -198,6 +200,7 @@
 				7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */,
 				7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */,
 				7D1D46913024745A00E891DD /* AdminNotifier.swift */,
+				7DDD6C7F3024A1BE00E34CA0 /* HelpRequestNotifier.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -296,6 +299,7 @@
 		000000000000000120000000 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				7DDD6C803024A1BE00E34CA0 /* HelpRequestNotifier.swift in Sources */,
 				7DA506672FF17F560066B1C2 /* SettingsView.swift in Sources */,
 				7DA5066B2FF181260066B1C2 /* SpeechRecognizer.swift in Sources */,
 				7DFCEDA42FF25A4A00D2D815 /* AccessibilityService.swift in Sources */,

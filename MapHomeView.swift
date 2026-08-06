@@ -51,7 +51,7 @@ struct MapHomeView: View {
                 model.updateProgress(newLocation)
                 model.checkObstacles(at: newLocation, for: profile.type)
                 model.checkTransitProximity(at: newLocation, isVisualProfile: profile.type == .visual)
-                if appState.isHelper { Task { await HelperService.updateHelperLocation(newLocation) } }
+                if appState.isHelper && appState.isHelperAvailable { Task { await HelperService.updateHelperLocation(newLocation) } }
             }
             .sensoryFeedback(.warning, trigger: model.obstacleWarning) { _, new in new != nil }
             .onChange(of: model.obstacleWarning) { _, warning in
@@ -184,6 +184,13 @@ struct MapHomeView: View {
                 Task { myAvatarURL = await HelperService.currentAvatarURL() }
             }
             .task(id: appState.isHelper) { await pollForHelperRequests() }
+            .onChange(of: appState.isHelper) { _, isHelper in
+                // Race fix: isHelper se confirma de forma async; si el primer fix
+                // de GPS llegó antes, lo escribimos ahora que ya sabemos que es helper.
+                guard isHelper, appState.isHelperAvailable,
+                      let loc = location.lastLocation else { return }
+                Task { await HelperService.updateHelperLocation(loc) }
+            }
             .onChange(of: model.activeHelpRequest?.status) { _, newStatus in
                 handleHelpStatusChange(newStatus)
             }

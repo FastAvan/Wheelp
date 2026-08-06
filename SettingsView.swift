@@ -308,6 +308,13 @@ struct SettingsView: View {
                     .foregroundStyle(Color.wheelpGreen)
                     .accessibilityHidden(true)
             }
+            Toggle(isOn: Binding(
+                get: { appState.isHelperAvailable },
+                set: { appState.setHelperAvailability($0) }
+            )) {
+                Label("Disponible para ayudar", systemImage: "hand.raised.circle.fill")
+            }
+            .tint(Color.wheelpGreen)
             // Foto de perfil del ayudante.
             HStack(spacing: 12) {
                 HelperAvatarView(url: helperAvatarURL, size: 52, localImage: localAvatarImage)

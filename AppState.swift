@@ -79,6 +79,12 @@ final class AppState {
     /// da de alta al usuario en la tabla `helpers` de Supabase y la app lo detecta.
     var isHelper = false
 
+    /// El ayudante ha activado su disponibilidad para recibir peticiones de ayuda.
+    /// Se persiste en UserDefaults (inicio rápido) y se sincroniza con Supabase al cambiar.
+    var isHelperAvailable: Bool {
+        didSet { defaults.set(isHelperAvailable, forKey: Keys.helperAvailable) }
+    }
+
     /// El usuario ha aceptado los términos y condiciones (persiste en UserDefaults).
     var hasAcceptedTerms: Bool {
         didSet { defaults.set(hasAcceptedTerms, forKey: Keys.termsAccepted) }
@@ -96,6 +102,7 @@ final class AppState {
         static let displayName = "wheelp.displayName"
         static let trustedContact = "wheelp.trustedContactPhone"
         static let termsAccepted = "wheelp.hasAcceptedTerms"
+        static let helperAvailable = "wheelp.helperAvailable"
     }
 
     init() {
@@ -109,6 +116,8 @@ final class AppState {
         voiceControlEnabled = (defaults.object(forKey: Keys.voiceControl) as? Bool) ?? true
         voiceRate = (defaults.object(forKey: Keys.voiceRate) as? Double) ?? Self.defaultVoiceRate
         hasAcceptedTerms = defaults.bool(forKey: Keys.termsAccepted)
+        // Disponibilidad: true por defecto para no interrumpir ayudantes existentes.
+        isHelperAvailable = (defaults.object(forKey: Keys.helperAvailable) as? Bool) ?? true
     }
 
     // MARK: - Autenticación (Supabase)
@@ -127,7 +136,10 @@ final class AppState {
             userName = session.user.email
             Task { @MainActor in
                 isHelper = await HelperService.isRegisteredHelper()
-                if isHelper { HelpRequestNotifier.shared.start() }
+                if isHelper {
+                    isHelperAvailable = await HelperService.fetchAvailability()
+                    if isHelperAvailable { HelpRequestNotifier.shared.start() }
+                }
             }
             if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
         }
@@ -139,7 +151,10 @@ final class AppState {
         isSignedIn = true
         Task { @MainActor in
             isHelper = await HelperService.isRegisteredHelper()
-            if isHelper { HelpRequestNotifier.shared.start() }
+            if isHelper {
+                isHelperAvailable = await HelperService.fetchAvailability()
+                if isHelperAvailable { HelpRequestNotifier.shared.start() }
+            }
         }
         if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
@@ -167,9 +182,23 @@ final class AppState {
         isSignedIn = true
         Task { @MainActor in
             isHelper = await HelperService.isRegisteredHelper()
-            if isHelper { HelpRequestNotifier.shared.start() }
+            if isHelper {
+                isHelperAvailable = await HelperService.fetchAvailability()
+                if isHelperAvailable { HelpRequestNotifier.shared.start() }
+            }
         }
         if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
+    }
+
+    /// Cambia la disponibilidad del ayudante: actualiza estado local, UserDefaults y Supabase.
+    func setHelperAvailability(_ available: Bool) {
+        isHelperAvailable = available
+        if available {
+            HelpRequestNotifier.shared.start()
+        } else {
+            HelpRequestNotifier.shared.stop()
+        }
+        Task { await HelperService.updateAvailability(available) }
     }
 
     func signOut() async {
