@@ -644,6 +644,40 @@ enum HelperService {
         return rows?.first
     }
 
+    // MARK: - Administración de solicitudes (solo admin)
+
+    /// Solicitudes pendientes de revisión. Requiere política RLS SELECT para el admin en Supabase.
+    static func fetchPendingApplications() async -> [HelperApplication] {
+        let rows: [HelperApplication]? = try? await supabase
+            .from("helper_applications")
+            .select("id,display_name,city,phone,status,motivation,created_at")
+            .eq("status", value: "pending")
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+        return rows ?? []
+    }
+
+    /// Aprueba la solicitud e inserta al usuario en `helpers`.
+    /// Requiere la función SQL `admin_approve_helper(p_application_id uuid)` en Supabase.
+    static func approveApplication(id: UUID) async -> Bool {
+        struct Params: Encodable { let p_application_id: UUID }
+        do {
+            try await supabase.rpc("admin_approve_helper", params: Params(p_application_id: id)).execute()
+            return true
+        } catch { return false }
+    }
+
+    /// Rechaza la solicitud.
+    /// Requiere la función SQL `admin_reject_helper(p_application_id uuid)` en Supabase.
+    static func rejectApplication(id: UUID) async -> Bool {
+        struct Params: Encodable { let p_application_id: UUID }
+        do {
+            try await supabase.rpc("admin_reject_helper", params: Params(p_application_id: id)).execute()
+            return true
+        } catch { return false }
+    }
+
 }
 
 // MARK: - Valoración pendiente tras terminar una ruta con ayudante

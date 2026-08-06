@@ -19,6 +19,9 @@ struct SettingsView: View {
                 if appState.isHelper {
                     helperSection
                 }
+                if isAdmin {
+                    adminSection
+                }
                 securitySection
                 onboardingSection
                 privacySection
@@ -42,6 +45,7 @@ struct SettingsView: View {
         // para que SwiftUI gestione el ciclo de vida del task correctamente y no
         // lo reinicie en cada re-render de body.
         .sheet(isPresented: $showTerms) { TermsView() }
+        .sheet(isPresented: $showAdminApplications) { AdminApplicationsView() }
         .alert("Eliminar cuenta permanentemente", isPresented: $showDeleteConfirmation) {
             Button("Eliminar", role: .destructive) {
                 Task {
@@ -258,6 +262,29 @@ struct SettingsView: View {
         }
     }
 
+    private var isAdmin: Bool { appState.userName == "aelguer@icloud.com" }
+
+    private var adminSection: some View {
+        Section {
+            Button {
+                showAdminApplications = true
+            } label: {
+                HStack {
+                    Label("Solicitudes de ayudante", systemImage: "person.badge.clock.fill")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        } header: {
+            Text("Administración")
+        } footer: {
+            Text("Revisa y aprueba las solicitudes de alta como ayudante.")
+        }
+    }
+
     @State private var helperAvgRating: Double? = nil
     @State private var helperAvatarURL: String? = nil
     @State private var avatarPickerItem: PhotosPickerItem? = nil
@@ -271,6 +298,7 @@ struct SettingsView: View {
     @State private var showDeleteConfirmation = false
     @State private var showDeleteError = false
     @State private var showTerms = false
+    @State private var showAdminApplications = false
     private var helperSection: some View {
         Section {
             HStack {
