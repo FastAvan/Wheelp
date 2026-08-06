@@ -15,6 +15,7 @@
 		7D1C7BDB2FEE8C1100302B3D /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BDA2FEE8C1100302B3D /* Storage */; };
 		7D1D468E3023B5FD00E891DD /* TransitRoutingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */; };
 		7D1D46903024733D00E891DD /* AdminApplicationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */; };
+		7D1D46923024745A00E891DD /* AdminNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D1D46913024745A00E891DD /* AdminNotifier.swift */; };
 		7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */; };
 		7D2B86E23018C30F0080E8A5 /* ContactPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */; };
 		7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */; };
@@ -64,6 +65,7 @@
 		000000000000000000000120 /* Wheelp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wheelp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitRoutingService.swift; sourceTree = "<group>"; };
 		7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminApplicationsView.swift; sourceTree = "<group>"; };
+		7D1D46913024745A00E891DD /* AdminNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminNotifier.swift; sourceTree = "<group>"; };
 		7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarCropView.swift; sourceTree = "<group>"; };
 		7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPickerView.swift; sourceTree = "<group>"; };
 		7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestSetupView.swift; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 				7D9ADA2A30229D8D000E24D8 /* PushTokenService.swift */,
 				7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */,
 				7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */,
+				7D1D46913024745A00E891DD /* AdminNotifier.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -302,6 +305,7 @@
 				7DA506632FF17DB20066B1C2 /* DestinationAccessibility.swift in Sources */,
 				7D1D468E3023B5FD00E891DD /* TransitRoutingService.swift in Sources */,
 				7DA5064D2FF177790066B1C2 /* RootView.swift in Sources */,
+				7D1D46923024745A00E891DD /* AdminNotifier.swift in Sources */,
 				7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */,
 				7DA5064B2FF177750066B1C2 /* AppState.swift in Sources */,
 				7DA5065D2FF17C530066B1C2 /* AccessibilityProfile.swift in Sources */,

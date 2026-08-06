@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
         await ChatNotifier.shared.checkOnce()
+        await AdminNotifier.shared.checkOnce()
         return .newData
     }
 }
