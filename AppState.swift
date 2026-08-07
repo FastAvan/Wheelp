@@ -274,7 +274,9 @@ final class AppState {
     /// Guarda la discapacidad seleccionada en el flujo pre-login.
     func setPreLoginDisability(_ type: DisabilityType) {
         disabilityType = type
+        hasCompletedOnboarding = true
         defaults.set(type.rawValue, forKey: Keys.disability)
+        defaults.set(true, forKey: Keys.onboarded)
     }
 
     func completeOnboarding(disability: DisabilityType) {
