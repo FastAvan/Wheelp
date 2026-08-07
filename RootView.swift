@@ -17,9 +17,13 @@ struct RootView: View {
                         try? await Task.sleep(for: .seconds(0.5))
                         withAnimation(.easeInOut(duration: 0.4)) { showSplash = false }
                     }
+            } else if !appState.isSignedIn && appState.disabilityType == nil {
+                // Usuario nuevo: selección de discapacidad antes del login.
+                PreLoginOnboardingView()
             } else if !appState.isSignedIn {
                 LoginView()
             } else if !appState.hasCompletedOnboarding {
+                // Fallback: usuarios del flujo anterior que no completaron onboarding.
                 OnboardingFlowView()
             } else if !appState.hasAcceptedTerms {
                 // Usuarios existentes que aún no han aceptado los T&C (RGPD).

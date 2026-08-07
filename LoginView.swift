@@ -17,6 +17,10 @@ struct LoginView: View {
     @State private var showTerms = false
     @State private var currentNonce = ""
     @State private var pendingEmail = ""
+    @State private var speech = SpeechAnnouncer()
+
+    private var isVisual: Bool { appState.disabilityType == .visual }
+    private var isStandard: Bool { appState.disabilityType == .none }
 
     enum Mode {
         case signIn, signUp, pendingVerification
@@ -39,12 +43,16 @@ struct LoginView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 22) {
+            VStack(spacing: isVisual ? 28 : 22) {
                 WheelpLogo(variant: .black)
                     .frame(maxWidth: 220)
 
                 Text(mode.title)
-                    .font(.title.bold())
+                    .font(isVisual ? .largeTitle.bold() : .title.bold())
+
+                if isStandard && mode != .pendingVerification {
+                    standardModeNotice
+                }
 
                 if mode == .pendingVerification {
                     pendingVerificationView
@@ -59,6 +67,25 @@ struct LoginView: View {
         .sheet(isPresented: $showTerms) {
             TermsView { termsAccepted = true }
         }
+        .task {
+            if isVisual {
+                speech.isEnabled = true
+                speech.configureSession()
+                speech.announce("Pantalla de inicio de sesión de Wheelp. Introduce tu correo electrónico y contraseña, o usa Continuar con Apple.")
+            }
+        }
+    }
+
+    private var standardModeNotice: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "info.circle")
+                .foregroundStyle(Color.wheelpGreen)
+            Text("Modo estándar. Si eres ayudante verificado, inicia sesión para atender solicitudes.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .padding(12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
     }
 
     // MARK: - Subviews

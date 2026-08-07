@@ -271,6 +271,12 @@ final class AppState {
     // MARK: - Onboarding
 
     /// Marca el onboarding como completado con el tipo de discapacidad elegido.
+    /// Guarda la discapacidad seleccionada en el flujo pre-login.
+    func setPreLoginDisability(_ type: DisabilityType) {
+        disabilityType = type
+        defaults.set(type.rawValue, forKey: Keys.disability)
+    }
+
     func completeOnboarding(disability: DisabilityType) {
         disabilityType = disability
         hasCompletedOnboarding = true
