@@ -266,7 +266,7 @@ struct LoginView: View {
             } onCompletion: { result in
                 handleAppleSignIn(result)
             }
-            .frame(height: 50)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .clipShape(Capsule())
             .disabled(isLoading)
 
