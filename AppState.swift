@@ -146,9 +146,17 @@ final class AppState {
         }
     }
 
-    func signIn(email: String, password: String) async throws {
-        let session = try await supabase.auth.signIn(email: email, password: password)
-        userName = session.user.email
+    /// Paso 1 del login con email: verifica la contraseña y envía un OTP al correo.
+    /// NO fija isSignedIn — eso ocurre solo tras verificar el OTP.
+    func initiateSignIn(email: String, password: String) async throws {
+        _ = try await supabase.auth.signIn(email: email, password: password)
+        try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: false)
+    }
+
+    /// Paso 2 del login con email: verifica el OTP y completa el inicio de sesión.
+    func verifyOTPAndSignIn(email: String, code: String) async throws {
+        try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
+        userName = supabase.auth.currentSession?.user.email ?? email
         isSignedIn = true
         Task { @MainActor in
             isHelper = await HelperService.isRegisteredHelper()
@@ -157,7 +165,11 @@ final class AppState {
                 if isHelperAvailable { HelpRequestNotifier.shared.start() }
             }
         }
-        if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
+        if userName == "aelguer@icloud.com" { AdminNotifier.shared.start() }
+    }
+
+    func resendLoginOTP(email: String) async throws {
+        try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: false)
     }
 
     /// Registra un usuario nuevo. Devuelve `true` si la sesión queda activa,
