@@ -286,7 +286,7 @@ struct LoginView: View {
                 try await appState.resetPassword(email: email)
                 infoMessage = "Te hemos enviado un enlace para restablecer tu contraseña."
             } catch {
-                errorMessage = "No se pudo enviar el correo. Inténtalo de nuevo."
+                errorMessage = "Error: \(error.localizedDescription)"
             }
             isLoading = false
         }
