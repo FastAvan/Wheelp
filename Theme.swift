@@ -41,8 +41,7 @@ struct WheelpPillButtonStyle: ButtonStyle {
         configuration.label
             .font(.headline)
             .foregroundStyle(filled ? .white : tint)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, minHeight: 50)
             .background(Capsule().fill(filled ? tint : Color.clear))
             .overlay(Capsule().strokeBorder(tint, lineWidth: filled ? 0 : 2))
             .contentShape(Capsule())
