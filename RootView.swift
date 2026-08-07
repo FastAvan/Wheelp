@@ -6,6 +6,7 @@ struct RootView: View {
     @State private var showSplash = true
 
     var body: some View {
+        @Bindable var appState = appState
         Group {
             if showSplash {
                 SplashView()
@@ -32,6 +33,10 @@ struct RootView: View {
         .animation(.easeInOut, value: appState.hasAcceptedTerms)
         .onChange(of: appState.isSignedIn) { _, signedIn in
             if !signedIn { ChatNotifier.shared.stop() }
+        }
+        .fullScreenCover(isPresented: $appState.needsPasswordReset) {
+            PasswordResetView()
+                .environment(appState)
         }
     }
 }

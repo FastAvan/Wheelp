@@ -78,6 +78,7 @@ final class AppState {
     /// ¿Este usuario es ayudante? Se decide FUERA de la app: el equipo de Wheelp
     /// da de alta al usuario en la tabla `helpers` de Supabase y la app lo detecta.
     var isHelper = false
+    var needsPasswordReset = false
 
     /// El ayudante ha activado su disponibilidad para recibir peticiones de ayuda.
     /// Se persiste en UserDefaults (inicio rápido) y se sincroniza con Supabase al cambiar.
@@ -202,7 +203,33 @@ final class AppState {
     }
 
     func resetPassword(email: String) async throws {
-        try await supabase.auth.resetPasswordForEmail(email)
+        try await supabase.auth.resetPasswordForEmail(
+            email,
+            redirectTo: URL(string: "wheelp://reset-password")
+        )
+    }
+
+    func updatePassword(_ newPassword: String) async throws {
+        try await supabase.auth.update(user: UserAttributes(password: newPassword))
+        needsPasswordReset = false
+        if let session = supabase.auth.currentSession {
+            isSignedIn = true
+            userName = session.user.email
+        }
+    }
+
+    func handleDeepLink(_ url: URL) async {
+        do {
+            let session = try await supabase.auth.session(from: url)
+            if url.host == "reset-password" {
+                needsPasswordReset = true
+            } else {
+                isSignedIn = true
+                userName = session.user.email
+            }
+        } catch {
+            print("[Wheelp] Deep link error: \(error)")
+        }
     }
 
     func resendVerification(email: String) async throws {

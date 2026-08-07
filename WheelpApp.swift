@@ -14,6 +14,9 @@ struct WheelpApp: App {
         WindowGroup {
             RootView()
                 .environment(appState)
+                .onOpenURL { url in
+                    Task { await appState.handleDeepLink(url) }
+                }
         }
     }
 }
