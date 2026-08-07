@@ -17,18 +17,21 @@ struct LoginView: View {
     @State private var showTerms = false
     @State private var currentNonce = ""
     @State private var pendingEmail = ""
+    @State private var otpEmail = ""
+    @State private var otpCode = ""
     @State private var speech = SpeechAnnouncer()
 
     private var isVisual: Bool { appState.disabilityType == .visual }
     private var isStandard: Bool { appState.disabilityType == .none }
 
     enum Mode {
-        case signIn, signUp, pendingVerification
+        case signIn, signUp, pendingVerification, otpVerification
         var title: String {
             switch self {
             case .signIn: "Iniciar sesión"
             case .signUp: "Crear cuenta"
             case .pendingVerification: "Verifica tu correo"
+            case .otpVerification: "Código de verificación"
             }
         }
     }
@@ -38,6 +41,7 @@ struct LoginView: View {
         case .signIn: email.contains("@") && password.count >= 6
         case .signUp: email.contains("@") && password.count >= 6 && privacyAccepted && termsAccepted
         case .pendingVerification: true
+        case .otpVerification: otpCode.count == 6
         }
     }
 
@@ -56,6 +60,8 @@ struct LoginView: View {
 
                 if mode == .pendingVerification {
                     pendingVerificationView
+                } else if mode == .otpVerification {
+                    otpVerificationView
                 } else {
                     loginFormView
                 }
@@ -89,6 +95,58 @@ struct LoginView: View {
     }
 
     // MARK: - Subviews
+
+    private var otpVerificationView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "envelope.badge.shield.half.filled")
+                .font(.system(size: 60))
+                .foregroundStyle(Color.wheelpGreen)
+                .padding(.top, 8)
+
+            Text("Hemos enviado un código de verificación a\n**\(otpEmail)**")
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            TextField("000000", text: $otpCode)
+                .keyboardType(.numberPad)
+                .font(.system(size: 36, weight: .bold, design: .monospaced))
+                .multilineTextAlignment(.center)
+                .tracking(8)
+                .padding()
+                .background(fieldBackground)
+                .onChange(of: otpCode) { _, new in
+                    otpCode = String(new.filter { $0.isNumber }.prefix(6))
+                }
+                .accessibilityLabel("Código de verificación de 6 dígitos")
+
+            if let msg = errorMessage {
+                Text(msg).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center)
+            }
+            if let msg = infoMessage {
+                Text(msg).font(.footnote).foregroundStyle(Color.wheelpGreen).multilineTextAlignment(.center)
+            }
+
+            Button(action: submit) {
+                if isLoading { ProgressView().tint(.white) } else { Text("Verificar") }
+            }
+            .buttonStyle(.wheelpPrimary)
+            .disabled(!isFormValid || isLoading)
+            .opacity(isFormValid && !isLoading ? 1 : 0.5)
+
+            Button("Reenviar código") { resendOTP() }
+                .font(.subheadline)
+                .foregroundStyle(Color.wheelpGreen)
+                .disabled(isLoading)
+
+            Button("Volver al inicio de sesión") {
+                withAnimation { mode = .signIn; errorMessage = nil; infoMessage = nil; otpCode = "" }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+        }
+    }
 
     private var pendingVerificationView: some View {
         VStack(spacing: 20) {
@@ -209,7 +267,7 @@ struct LoginView: View {
                 handleAppleSignIn(result)
             }
             .frame(height: 50)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(Capsule())
             .disabled(isLoading)
 
             Button(mode == .signIn ? "¿No tienes cuenta? Crear una" : "¿Ya tienes cuenta? Inicia sesión") {
@@ -276,7 +334,11 @@ struct LoginView: View {
             do {
                 switch mode {
                 case .signIn:
-                    try await appState.signIn(email: email, password: password)
+                    try await appState.initiateSignIn(email: email, password: password)
+                    otpEmail = email
+                    withAnimation { mode = .otpVerification }
+                case .otpVerification:
+                    try await appState.verifyOTPAndSignIn(email: otpEmail, code: otpCode)
                 case .signUp:
                     let active = try await appState.signUp(email: email, password: password)
                     appState.hasAcceptedTerms = true
@@ -314,6 +376,21 @@ struct LoginView: View {
                 infoMessage = "Te hemos enviado un enlace para restablecer tu contraseña."
             } catch {
                 errorMessage = "No se pudo enviar el correo. Inténtalo de nuevo."
+            }
+            isLoading = false
+        }
+    }
+
+    private func resendOTP() {
+        errorMessage = nil
+        infoMessage = nil
+        isLoading = true
+        Task {
+            do {
+                try await appState.resendLoginOTP()
+                infoMessage = "Código reenviado. Revisa tu correo."
+            } catch {
+                errorMessage = "No se pudo reenviar el código. Inténtalo de nuevo."
             }
             isLoading = false
         }
