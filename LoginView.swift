@@ -387,7 +387,7 @@ struct LoginView: View {
         isLoading = true
         Task {
             do {
-                try await appState.resendLoginOTP()
+                try await appState.resendLoginOTP(email: otpEmail)
                 infoMessage = "Código reenviado. Revisa tu correo."
             } catch {
                 errorMessage = "No se pudo reenviar el código. Inténtalo de nuevo."

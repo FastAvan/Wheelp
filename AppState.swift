@@ -146,27 +146,15 @@ final class AppState {
         }
     }
 
-    /// Paso 1: verifica contraseña y envía OTP de reautenticación al correo.
+    /// Paso 1: verifica contraseña y envía OTP al correo (plantilla Magic Link or OTP).
     func initiateSignIn(email: String, password: String) async throws {
         _ = try await supabase.auth.signIn(email: email, password: password)
-        try await supabase.auth.reauthenticate()
+        try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: false)
     }
 
-    /// Paso 2: verifica el OTP de reautenticación vía REST (el SDK no tiene EmailOTPType.reauthentication).
+    /// Paso 2: verifica el código OTP (type .email) y completa el inicio de sesión.
     func verifyOTPAndSignIn(email: String, code: String) async throws {
-        struct Body: Encodable { let email, token, type: String }
-        var req = URLRequest(url: SupabaseConfig.url.appendingPathComponent("auth/v1/verify"))
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(SupabaseConfig.anonKey, forHTTPHeaderField: "apikey")
-        if let token = supabase.auth.currentSession?.accessToken {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        req.httpBody = try JSONEncoder().encode(Body(email: email, token: code, type: "reauthentication"))
-        let (_, response) = try await URLSession.shared.data(for: req)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
+        try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
         userName = supabase.auth.currentSession?.user.email ?? email
         isSignedIn = true
         Task { @MainActor in
@@ -179,8 +167,8 @@ final class AppState {
         if userName == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
 
-    func resendLoginOTP() async throws {
-        try await supabase.auth.reauthenticate()
+    func resendLoginOTP(email: String) async throws {
+        try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: false)
     }
 
     /// Registra un usuario nuevo. Devuelve `true` si la sesión queda activa,
