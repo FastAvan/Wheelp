@@ -149,7 +149,7 @@ struct SettingsView: View {
             }
             HStack {
                 Label("Nombre o alias", systemImage: "person.text.rectangle")
-                TextField("Ej.: Álvaro", text: $appState.displayName)
+                TextField("Ej.: Tu Nombre", text: $appState.displayName)
                     .multilineTextAlignment(.trailing)
                     .textInputAutocapitalization(.words)
                     .autocorrectionDisabled()

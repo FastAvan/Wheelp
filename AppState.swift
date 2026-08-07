@@ -201,6 +201,14 @@ final class AppState {
         Task { await HelperService.updateAvailability(available) }
     }
 
+    func resetPassword(email: String) async throws {
+        try await supabase.auth.resetPasswordForEmail(email)
+    }
+
+    func resendVerification(email: String) async throws {
+        try await supabase.auth.resend(email: email, type: .signup)
+    }
+
     func signOut() async {
         HelpRequestNotifier.shared.stop()
         AdminNotifier.shared.stop()

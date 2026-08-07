@@ -16,18 +16,25 @@ struct LoginView: View {
     @State private var termsAccepted = false
     @State private var showTerms = false
     @State private var currentNonce = ""
+    @State private var pendingEmail = ""
 
     enum Mode {
-        case signIn, signUp
-        var title: String { self == .signIn ? "Iniciar sesión" : "Crear cuenta" }
-        var cta: String { self == .signIn ? "Entrar" : "Registrarme" }
-        var togglePrompt: String {
-            self == .signIn ? "¿No tienes cuenta? Crear una" : "¿Ya tienes cuenta? Inicia sesión"
+        case signIn, signUp, pendingVerification
+        var title: String {
+            switch self {
+            case .signIn: "Iniciar sesión"
+            case .signUp: "Crear cuenta"
+            case .pendingVerification: "Verifica tu correo"
+            }
         }
     }
 
     private var isFormValid: Bool {
-        email.contains("@") && password.count >= 6 && (mode == .signIn || (privacyAccepted && termsAccepted))
+        switch mode {
+        case .signIn: email.contains("@") && password.count >= 6
+        case .signUp: email.contains("@") && password.count >= 6 && privacyAccepted && termsAccepted
+        case .pendingVerification: true
+        }
     }
 
     var body: some View {
@@ -39,79 +46,11 @@ struct LoginView: View {
                 Text(mode.title)
                     .font(.title.bold())
 
-                VStack(spacing: 14) {
-                    TextField("Correo electrónico", text: $email)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding()
-                        .background(fieldBackground)
-
-                    SecureField("Contraseña", text: $password)
-                        .textContentType(mode == .signIn ? .password : .newPassword)
-                        .padding()
-                        .background(fieldBackground)
+                if mode == .pendingVerification {
+                    pendingVerificationView
+                } else {
+                    loginFormView
                 }
-
-                if mode == .signUp {
-                    privacyConsentView
-                    termsConsentView
-                }
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                }
-                if let infoMessage {
-                    Text(infoMessage)
-                        .font(.footnote)
-                        .foregroundStyle(Color.wheelpGreen)
-                        .multilineTextAlignment(.center)
-                }
-
-                Button(action: submit) {
-                    if isLoading {
-                        ProgressView().tint(.white)
-                    } else {
-                        Text(mode.cta)
-                    }
-                }
-                .buttonStyle(.wheelpPrimary)
-                .disabled(!isFormValid || isLoading)
-                .opacity(isFormValid && !isLoading ? 1 : 0.5)
-
-                HStack {
-                    Rectangle().frame(height: 1).foregroundStyle(Color(.separator))
-                    Text("o").font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 8)
-                    Rectangle().frame(height: 1).foregroundStyle(Color(.separator))
-                }
-
-                SignInWithAppleButton(.continue) { request in
-                    let nonce = randomNonceString()
-                    currentNonce = nonce
-                    request.requestedScopes = [.fullName, .email]
-                    request.nonce = sha256(nonce)
-                } onCompletion: { result in
-                    handleAppleSignIn(result)
-                }
-                .frame(height: 50)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .disabled(isLoading)
-
-                Button(mode.togglePrompt) {
-                    withAnimation {
-                        mode = (mode == .signIn) ? .signUp : .signIn
-                        errorMessage = nil
-                        infoMessage = nil
-                        privacyAccepted = false
-                        termsAccepted = false
-                    }
-                }
-                .font(.subheadline)
-                .foregroundStyle(Color.wheelpGreen)
             }
             .padding(.horizontal, 28)
             .padding(.top, 60)
@@ -119,6 +58,144 @@ struct LoginView: View {
         }
         .sheet(isPresented: $showTerms) {
             TermsView { termsAccepted = true }
+        }
+    }
+
+    // MARK: - Subviews
+
+    private var pendingVerificationView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "envelope.badge")
+                .font(.system(size: 60))
+                .foregroundStyle(Color.wheelpGreen)
+                .padding(.top, 8)
+
+            Text("Hemos enviado un correo a\n**\(pendingEmail)**\n\nHaz clic en el enlace que contiene para activar tu cuenta.")
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let msg = errorMessage {
+                Text(msg)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+            }
+            if let msg = infoMessage {
+                Text(msg)
+                    .font(.footnote)
+                    .foregroundStyle(Color.wheelpGreen)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: submit) {
+                if isLoading {
+                    ProgressView().tint(.white)
+                } else {
+                    Text("Reenviar correo")
+                }
+            }
+            .buttonStyle(.wheelpPrimary)
+            .disabled(isLoading)
+            .opacity(isLoading ? 0.5 : 1)
+
+            Button("Volver al inicio de sesión") {
+                withAnimation {
+                    mode = .signIn
+                    errorMessage = nil
+                    infoMessage = nil
+                }
+            }
+            .font(.subheadline)
+            .foregroundStyle(Color.wheelpGreen)
+        }
+    }
+
+    private var loginFormView: some View {
+        VStack(spacing: 22) {
+            VStack(spacing: 14) {
+                TextField("Correo electrónico", text: $email)
+                    .textContentType(.emailAddress)
+                    .keyboardType(.emailAddress)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding()
+                    .background(fieldBackground)
+
+                SecureField("Contraseña", text: $password)
+                    .textContentType(mode == .signIn ? .password : .newPassword)
+                    .padding()
+                    .background(fieldBackground)
+
+                if mode == .signIn {
+                    HStack {
+                        Spacer()
+                        Button("¿Olvidaste tu contraseña?") { forgotPassword() }
+                            .font(.footnote)
+                            .foregroundStyle(Color.wheelpGreen)
+                    }
+                }
+            }
+
+            if mode == .signUp {
+                privacyConsentView
+                termsConsentView
+            }
+
+            if let msg = errorMessage {
+                Text(msg)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+            }
+            if let msg = infoMessage {
+                Text(msg)
+                    .font(.footnote)
+                    .foregroundStyle(Color.wheelpGreen)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button(action: submit) {
+                if isLoading {
+                    ProgressView().tint(.white)
+                } else {
+                    Text(mode == .signIn ? "Entrar" : "Registrarme")
+                }
+            }
+            .buttonStyle(.wheelpPrimary)
+            .disabled(!isFormValid || isLoading)
+            .opacity(isFormValid && !isLoading ? 1 : 0.5)
+
+            HStack {
+                Rectangle().frame(height: 1).foregroundStyle(Color(.separator))
+                Text("o").font(.footnote).foregroundStyle(.secondary).padding(.horizontal, 8)
+                Rectangle().frame(height: 1).foregroundStyle(Color(.separator))
+            }
+
+            SignInWithAppleButton(.continue) { request in
+                let nonce = randomNonceString()
+                currentNonce = nonce
+                request.requestedScopes = [.fullName, .email]
+                request.nonce = sha256(nonce)
+            } onCompletion: { result in
+                handleAppleSignIn(result)
+            }
+            .frame(height: 50)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .disabled(isLoading)
+
+            Button(mode == .signIn ? "¿No tienes cuenta? Crear una" : "¿Ya tienes cuenta? Inicia sesión") {
+                withAnimation {
+                    mode = (mode == .signIn) ? .signUp : .signIn
+                    errorMessage = nil
+                    infoMessage = nil
+                    privacyAccepted = false
+                    termsAccepted = false
+                }
+            }
+            .font(.subheadline)
+            .foregroundStyle(Color.wheelpGreen)
         }
     }
 
@@ -162,6 +239,8 @@ struct LoginView: View {
             .fill(Color(.secondarySystemBackground))
     }
 
+    // MARK: - Actions
+
     private func submit() {
         errorMessage = nil
         infoMessage = nil
@@ -173,13 +252,41 @@ struct LoginView: View {
                     try await appState.signIn(email: email, password: password)
                 case .signUp:
                     let active = try await appState.signUp(email: email, password: password)
-                    appState.hasAcceptedTerms = true  // el usuario aceptó durante el registro
+                    appState.hasAcceptedTerms = true
                     if !active {
-                        infoMessage = "Te hemos enviado un correo para confirmar tu cuenta."
+                        pendingEmail = email
+                        withAnimation { mode = .pendingVerification }
                     }
+                case .pendingVerification:
+                    try await appState.resendVerification(email: pendingEmail)
+                    infoMessage = "Correo reenviado. Revisa tu bandeja de entrada."
                 }
             } catch {
-                errorMessage = "No se pudo completar. Revisa tus datos e inténtalo de nuevo."
+                let desc = error.localizedDescription.lowercased()
+                if desc.contains("not confirmed") || desc.contains("email not confirmed") {
+                    errorMessage = "Confirma tu correo antes de entrar. Revisa tu bandeja de entrada."
+                } else {
+                    errorMessage = "No se pudo completar. Revisa tus datos e inténtalo de nuevo."
+                }
+            }
+            isLoading = false
+        }
+    }
+
+    private func forgotPassword() {
+        guard email.contains("@") else {
+            errorMessage = "Introduce tu correo para recuperar la contraseña."
+            return
+        }
+        errorMessage = nil
+        infoMessage = nil
+        isLoading = true
+        Task {
+            do {
+                try await appState.resetPassword(email: email)
+                infoMessage = "Te hemos enviado un enlace para restablecer tu contraseña."
+            } catch {
+                errorMessage = "No se pudo enviar el correo. Inténtalo de nuevo."
             }
             isLoading = false
         }
