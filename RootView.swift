@@ -23,8 +23,7 @@ struct RootView: View {
             } else if !appState.isSignedIn {
                 LoginView()
             } else if !appState.hasCompletedOnboarding {
-                // Fallback: usuarios del flujo anterior que no completaron onboarding.
-                OnboardingFlowView()
+                OnboardingFlowView(preselectedDisability: appState.disabilityType)
             } else if !appState.hasAcceptedTerms {
                 // Usuarios existentes que aún no han aceptado los T&C (RGPD).
                 TermsView { appState.hasAcceptedTerms = true }

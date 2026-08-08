@@ -6,8 +6,13 @@ import SwiftUI
 /// Con VoiceOver activo, la voz propia se calla pero el micrófono sigue disponible.
 struct OnboardingFlowView: View {
     @Environment(AppState.self) private var appState
-    @State private var step: Step = .welcome
-    @State private var selectedDisability: DisabilityType = .none
+    @State private var step: Step
+    @State private var selectedDisability: DisabilityType
+
+    init(preselectedDisability: DisabilityType? = nil) {
+        _step = State(initialValue: preselectedDisability != nil ? .configuring : .welcome)
+        _selectedDisability = State(initialValue: preselectedDisability ?? .none)
+    }
     @State private var speech = SpeechAnnouncer()
     @State private var recognizer = SpeechRecognizer()
     /// Evita reaccionar dos veces a la misma respuesta (voz y toque comparten flujo).
