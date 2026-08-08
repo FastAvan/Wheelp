@@ -19,6 +19,8 @@
 		7D2B86E03018BCE70080E8A5 /* AvatarCropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */; };
 		7D2B86E23018C30F0080E8A5 /* ContactPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */; };
 		7D42B9582FFEA4F50061EBC6 /* HelpRequestSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */; };
+		7D43554B302646C1005291B9 /* PasswordResetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D43554A302646C1005291B9 /* PasswordResetView.swift */; };
+		7D43554D302649AB005291B9 /* PreLoginOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D43554C302649AB005291B9 /* PreLoginOnboardingView.swift */; };
 		7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */; };
 		7D9ADA20302292F1000E24D8 /* DiditSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 7D9ADA1F302292F1000E24D8 /* DiditSDK */; };
 		7D9ADA2930229D86000E24D8 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D9ADA2830229D86000E24D8 /* AppDelegate.swift */; };
@@ -70,6 +72,8 @@
 		7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarCropView.swift; sourceTree = "<group>"; };
 		7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPickerView.swift; sourceTree = "<group>"; };
 		7D42B9572FFEA4F50061EBC6 /* HelpRequestSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestSetupView.swift; sourceTree = "<group>"; };
+		7D43554A302646C1005291B9 /* PasswordResetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordResetView.swift; sourceTree = "<group>"; };
+		7D43554C302649AB005291B9 /* PreLoginOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreLoginOnboardingView.swift; sourceTree = "<group>"; };
 		7D54920D2FF90FC5001A2E40 /* SavedPlacesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedPlacesService.swift; sourceTree = "<group>"; };
 		7D9ADA2830229D86000E24D8 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7D9ADA2A30229D8D000E24D8 /* PushTokenService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushTokenService.swift; sourceTree = "<group>"; };
@@ -201,6 +205,8 @@
 				7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */,
 				7D1D46913024745A00E891DD /* AdminNotifier.swift */,
 				7DDD6C7F3024A1BE00E34CA0 /* HelpRequestNotifier.swift */,
+				7D43554A302646C1005291B9 /* PasswordResetView.swift */,
+				7D43554C302649AB005291B9 /* PreLoginOnboardingView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -306,6 +312,7 @@
 				7D54920E2FF90FC5001A2E40 /* SavedPlacesService.swift in Sources */,
 				7D9ADA2930229D86000E24D8 /* AppDelegate.swift in Sources */,
 				7D1D46903024733D00E891DD /* AdminApplicationsView.swift in Sources */,
+				7D43554B302646C1005291B9 /* PasswordResetView.swift in Sources */,
 				7DA506632FF17DB20066B1C2 /* DestinationAccessibility.swift in Sources */,
 				7D1D468E3023B5FD00E891DD /* TransitRoutingService.swift in Sources */,
 				7DA5064D2FF177790066B1C2 /* RootView.swift in Sources */,
@@ -319,6 +326,7 @@
 				7DA5066D2FF181750066B1C2 /* VoiceHomeView.swift in Sources */,
 				7DA506532FF177A60066B1C2 /* ConfiguringView.swift in Sources */,
 				7DE112092FF3A9E200AABB7A /* GooglePlacesAccessibilityService.swift in Sources */,
+				7D43554D302649AB005291B9 /* PreLoginOnboardingView.swift in Sources */,
 				7DA5065B2FF179700066B1C2 /* SupabaseManager.swift in Sources */,
 				7DA506652FF17E8E0066B1C2 /* SpeechAnnouncer.swift in Sources */,
 				7DE071F6300032800089CE1E /* ChatNotifier.swift in Sources */,

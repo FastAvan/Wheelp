@@ -27,17 +27,16 @@ enum NotificationService {
         switch settings.authorizationStatus {
         case .notDetermined:
             let granted = (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) ?? false
-            if granted { await registerRemote() }
+            if granted { registerRemote() }
         case .authorized, .provisional:
-            await registerRemote()
+            registerRemote()
         default:
             break
         }
     }
 
-    @MainActor
     private static func registerRemote() {
-        UIApplication.shared.registerForRemoteNotifications()
+        Task { @MainActor in UIApplication.shared.registerForRemoteNotifications() }
     }
 
     /// Notificación inmediata (trigger nil = se muestra al instante).

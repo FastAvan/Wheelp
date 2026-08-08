@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     /// Silent push recibido con la app en background o suspended.
     /// Devuelve .newData para que iOS no penalice el background budget.
-    func application(
+    nonisolated func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {

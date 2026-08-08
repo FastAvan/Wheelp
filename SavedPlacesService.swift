@@ -77,7 +77,7 @@ enum SavedPlacesService {
     }
 
     /// Últimos destinos visitados (máx. `limit`, más recientes primero).
-    static func fetchRecents(limit: Int = maxRecents) async -> [SavedPlace] {
+    static func fetchRecents(limit: Int = 5) async -> [SavedPlace] {
         Array(
             loadAll()
                 .filter { $0.kind == .recent }
