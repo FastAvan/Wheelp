@@ -3,13 +3,19 @@ import MapKit
 
 /// Clave de la API de Google Places (New).
 ///
-/// 👉 Pega aquí tu clave: Google Cloud Console → APIs y servicios → Credenciales.
-///    Necesitas habilitar "Places API (New)" y tener facturación activada.
+/// La clave vive en Info.plist (clave "GooglePlacesAPIKey") para que rotar
+/// solo requiera editar ese archivo sin tocar código fuente.
+/// Pasos tras clonar: sustituir ROTATE_KEY_IN_GOOGLE_CLOUD_CONSOLE por la
+/// clave real, restringida por Bundle ID en Google Cloud Console.
 enum GooglePlacesConfig {
-    static let apiKey = "GOOGLE_KEY_REMOVED_ROTATED"
+    static let apiKey: String = {
+        Bundle.main.infoDictionary?["GooglePlacesAPIKey"] as? String ?? ""
+    }()
 
     static var isConfigured: Bool {
-        !apiKey.isEmpty && apiKey != "TU_API_KEY_DE_GOOGLE"
+        !apiKey.isEmpty
+            && apiKey != "TU_API_KEY_DE_GOOGLE"
+            && apiKey != "ROTATE_KEY_IN_GOOGLE_CLOUD_CONSOLE"
     }
 }
 
