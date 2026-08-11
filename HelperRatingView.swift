@@ -35,7 +35,15 @@ struct HelperRatingView: View {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Valoración: \(selected) de 5 estrellas")
+            .accessibilityLabel("Valoración")
+            .accessibilityValue(selected == 0 ? "Sin valorar" : "\(selected) de 5 estrellas")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: selected = min(5, selected + 1)
+                case .decrement: selected = max(1, selected - 1)
+                @unknown default: break
+                }
+            }
 
             VStack(spacing: 12) {
                 Button {

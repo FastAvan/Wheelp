@@ -264,9 +264,18 @@ final class AppState {
     func deleteAccount() async throws {
         await PushTokenService.delete()
         try await supabase.rpc("delete_own_account").execute()
+        try? await supabase.auth.signOut()
         [Keys.onboarded, Keys.disability, Keys.voiceControl,
-         Keys.voiceRate, Keys.displayName, Keys.trustedContact, Keys.termsAccepted]
+         Keys.voiceRate, Keys.displayName, Keys.trustedContact,
+         Keys.termsAccepted, Keys.helperAvailable]
             .forEach { defaults.removeObject(forKey: $0) }
+        // Delete saved places and route history from disk.
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+        if let url = appSupport?.appendingPathComponent("saved-places.json") {
+            try? FileManager.default.removeItem(at: url)
+        }
+        // Clear E2E private keys from the Keychain.
+        HelpCrypto.clearAllKeys()
         HelpRequestNotifier.shared.stop()
         AdminNotifier.shared.stop()
         isSignedIn = false

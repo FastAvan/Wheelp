@@ -471,8 +471,6 @@ enum HelperService {
         ), let payload = HelpCrypto.sealJSON(HelperDetails(name: helperName), with: key) else {
             return false
         }
-        HelpCrypto.savePrivateKey(privateKey, for: request.id)
-
         do {
             try await supabase
                 .from(table)
@@ -485,9 +483,11 @@ enum HelperService {
                 .eq("id", value: request.id)
                 .eq("status", value: HelpRequest.Status.pending.rawValue)
                 .execute()
+            // Save key only after the update is confirmed, to avoid leaving a
+            // dangling key if the update fails or races with another accept.
+            HelpCrypto.savePrivateKey(privateKey, for: request.id)
             return true
         } catch {
-            HelpCrypto.forget(requestId: request.id)
             return false
         }
     }
@@ -496,8 +496,12 @@ enum HelperService {
     /// mensajes (en cascada) y la clave local. Para la otra persona, la
     /// desaparición de la fila equivale al fin de la ayuda.
     static func close(_ id: UUID) async {
-        _ = try? await supabase.from(table).delete().eq("id", value: id).execute()
-        HelpCrypto.forget(requestId: id)
+        // Only wipe the local key if the server delete is confirmed; a network
+        // failure otherwise leaves the row in the DB and a helper could still
+        // accept it while the key is already gone.
+        if (try? await supabase.from(table).delete().eq("id", value: id).execute()) != nil {
+            HelpCrypto.forget(requestId: id)
+        }
     }
 
     /// Distancia del ayudante al punto de encuentro (o a su zona aproximada).
@@ -514,11 +518,12 @@ enum HelperService {
             .from(messagesTable)
             .select()
             .eq("request_id", value: request.id)
-            .order("created_at", ascending: true)
+            .order("created_at", ascending: false)
             .limit(100)
             .execute()
             .value
         guard var messages else { return [] }
+        messages.reverse() // newest-first from DB → oldest-first for display
         if let key = await symmetricKey(for: request) {
             for index in messages.indices {
                 if let data = HelpCrypto.open(messages[index].ciphertext, with: key) {

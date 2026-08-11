@@ -52,7 +52,8 @@ struct RouteObstacle: Identifiable {
 enum RouteObstaclesService {
     private static let endpoint = URL(string: "https://overpass-api.de/api/interpreter")!
 
-    static func fetch(along route: MKRoute) async -> [RouteObstacle] {
+    /// Returns nil when the request fails — distinct from an empty array (no obstacles found).
+    static func fetch(along route: MKRoute) async -> [RouteObstacle]? {
         let coordinates = sampledCoordinates(of: route.polyline, everyMeters: 80)
         guard coordinates.count >= 2 else { return [] }
         // "around" con una lista de coordenadas busca a ≤25 m de la línea de la ruta.
@@ -84,7 +85,9 @@ enum RouteObstaclesService {
             let response = try JSONDecoder().decode(OverpassObstacles.self, from: data)
             return response.elements.compactMap(obstacle(from:))
         } catch {
-            return []
+            // Return nil (not []) so callers can distinguish "no obstacles" from
+            // "data unavailable" — an outage must not be shown as "all clear".
+            return nil
         }
     }
 

@@ -47,6 +47,11 @@ struct AvatarCropView: View {
                                     .onEnded { _ in lastOffset = offset }
                             )
                         )
+                        .accessibilityLabel("Foto de perfil")
+                        .accessibilityHint("Pellizca para ampliar y arrastra para centrar. Activa 'Usar foto' en la barra superior para confirmar.")
+                        .accessibilityAction(named: "Usar foto sin ajustar") {
+                            onConfirm(cropResult())
+                        }
 
                     CropMaskView(cropSize: cropSize)
                         .allowsHitTesting(false)

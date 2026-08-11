@@ -1131,6 +1131,7 @@ struct MapHomeView: View {
                             .foregroundStyle(.secondary)
                             .font(.title2)
                     }
+                    .accessibilityLabel("Cerrar ruta")
                 }
 
                 Divider()
@@ -1399,7 +1400,8 @@ struct MapHomeView: View {
         helperAvatarURL = nil
         guard let helperId else { return }
         Task {
-            async let code = HelperService.meetingCode(for: model.activeHelpRequest!)
+            guard let request = model.activeHelpRequest else { return }
+            async let code = HelperService.meetingCode(for: request)
             async let avatar = HelperService.helperAvatarURL(for: helperId)
             activeHelpMeetingCode = await code
             helperAvatarURL = await avatar

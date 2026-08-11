@@ -64,6 +64,15 @@ enum HelpCrypto {
         UserDefaults.standard.removeObject(forKey: pendingKey(requestId))
     }
 
+    /// Borra todas las claves privadas del llavero (para eliminación de cuenta).
+    static func clearAllKeys() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "wheelp.help-key"
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
     // MARK: - Clave simétrica compartida (X25519 + HKDF)
 
     static func symmetricKey(

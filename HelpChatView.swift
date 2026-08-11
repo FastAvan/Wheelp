@@ -124,10 +124,10 @@ struct HelpChatView: View {
     private func send() {
         let text = draft.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
-        draft = ""
         Task {
             // El texto viaja cifrado; el nombre ya se intercambió cifrado al aceptar.
             await HelperService.sendMessage(request: request, text: text)
+            draft = ""
             await refresh()
         }
     }

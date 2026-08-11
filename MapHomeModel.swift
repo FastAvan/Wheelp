@@ -142,18 +142,24 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
     private func startHelpPolling() {
         helpPollTask?.cancel()
         helpPollTask = Task {
+            var consecutiveNilCount = 0
             while !Task.isCancelled, let current = activeHelpRequest {
                 try? await Task.sleep(for: .seconds(8))
                 guard !Task.isCancelled else { break }
                 guard let updated = await HelperService.fetch(id: current.id) else {
-                    // La fila ya no existe: la otra parte terminó la ayuda.
-                    if current.status == .accepted {
+                    consecutiveNilCount += 1
+                    // Require 3 consecutive nil responses before concluding the
+                    // session ended — a single nil is indistinguishable from a
+                    // network blip, and calling forget() on a live session is
+                    // unrecoverable.
+                    if current.status == .accepted, consecutiveNilCount >= 3 {
                         HelpCrypto.forget(requestId: current.id)
                         activeHelpRequest = nil
                         break
                     }
                     continue
                 }
+                consecutiveNilCount = 0
                 // Notificación local en el momento en que alguien acepta.
                 if current.status == .pending, updated.status == .accepted {
                     NotificationService.notify(
@@ -621,14 +627,17 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
             }
 
             var scored: [(route: MKRoute, obstacles: [RouteObstacle])] = []
-            await withTaskGroup(of: (Int, [RouteObstacle]).self) { group in
+            var obstacleDataAvailable = true
+            await withTaskGroup(of: (Int, [RouteObstacle]?).self) { group in
                 for index in candidates.indices {
                     group.addTask {
                         (index, await RouteObstaclesService.fetch(along: candidates[index]))
                     }
                 }
                 var byIndex: [Int: [RouteObstacle]] = [:]
-                for await (index, list) in group { byIndex[index] = list }
+                for await (index, result) in group {
+                    if let list = result { byIndex[index] = list } else { obstacleDataAvailable = false }
+                }
                 scored = candidates.enumerated().map { ($0.element, byIndex[$0.offset] ?? []) }
             }
 
@@ -656,7 +665,8 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
             routeChoiceNote = Self.routeSummary(
                 relevant: relevant,
                 avoided: worstCount - relevant.count,
-                alternatives: scored.count
+                alternatives: scored.count,
+                obstacleDataAvailable: obstacleDataAvailable
             )
 
             Task {
@@ -668,9 +678,11 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
-    private static func routeSummary(relevant: [RouteObstacle], avoided: Int, alternatives: Int) -> String {
+    private static func routeSummary(relevant: [RouteObstacle], avoided: Int, alternatives: Int, obstacleDataAvailable: Bool) -> String {
         var parts: [String] = []
-        if relevant.isEmpty {
+        if !obstacleDataAvailable {
+            parts.append("No se pudo verificar si hay obstáculos en esta ruta")
+        } else if relevant.isEmpty {
             parts.append("Sin obstáculos conocidos para ti en esta ruta")
         } else {
             let counts = Dictionary(grouping: relevant, by: \.title)

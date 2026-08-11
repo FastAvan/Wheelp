@@ -38,8 +38,8 @@ struct LoginView: View {
 
     private var isFormValid: Bool {
         switch mode {
-        case .signIn: email.contains("@") && password.count >= 6
-        case .signUp: email.contains("@") && password.count >= 6 && privacyAccepted && termsAccepted
+        case .signIn: email.contains("@") && password.count >= 8
+        case .signUp: email.contains("@") && password.count >= 8 && privacyAccepted && termsAccepted
         case .pendingVerification: true
         case .otpVerification: otpCode.count == 6
         }
@@ -289,6 +289,7 @@ struct LoginView: View {
             Toggle("", isOn: $termsAccepted)
                 .labelsHidden()
                 .tint(Color.wheelpGreen)
+                .accessibilityLabel("He leído y acepto los términos y condiciones de uso.")
             VStack(alignment: .leading, spacing: 4) {
                 Text("He leído y acepto los **términos y condiciones** de uso.")
                     .font(.footnote)
@@ -309,7 +310,8 @@ struct LoginView: View {
             Toggle("", isOn: $privacyAccepted)
                 .labelsHidden()
                 .tint(Color.wheelpGreen)
-            Text("He leído y acepto cómo se tratan mis datos: el correo se guarda en el servidor para gestionar la sesión; la ubicación y los destinos permanecen solo en este iPhone. Puedo eliminar mi cuenta en cualquier momento desde Ajustes.")
+                .accessibilityLabel("He leído y acepto cómo se tratan mis datos.")
+            Text("He leído y acepto cómo se tratan mis datos: el correo se guarda en el servidor para gestionar la sesión. Los destinos se envían a Google Maps y OpenStreetMap para calcular rutas. Los favoritos permanecen solo en este iPhone. Puedo eliminar mi cuenta en cualquier momento desde Ajustes.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

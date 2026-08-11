@@ -430,7 +430,7 @@ struct SettingsView: View {
         } header: {
             Text("Privacidad y datos")
         } footer: {
-            Text("Tu correo se guarda en el servidor para gestionar la sesión. La ubicación, los destinos y los favoritos permanecen solo en este iPhone. Las solicitudes de ayuda y los mensajes viajan cifrados de extremo a extremo y se borran al terminar.")
+            Text("Tu correo se guarda en el servidor (Supabase) para gestionar la sesión. Los destinos y las rutas se envían a Google Maps y OpenStreetMap para calcular itinerarios; la ubicación exacta nunca se almacena en el servidor. Los favoritos y el historial permanecen solo en este iPhone. Las solicitudes de ayuda y los mensajes viajan cifrados de extremo a extremo y se borran al terminar.")
         }
     }
 
