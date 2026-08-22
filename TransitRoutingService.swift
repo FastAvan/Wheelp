@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import Supabase
 
 struct TransitItinerary {
     struct Leg: Identifiable {
@@ -30,47 +31,29 @@ struct TransitItinerary {
 
 enum TransitRoutingService {
 
+    private struct EdgeRequest: Encodable {
+        let originLat: Double
+        let originLng: Double
+        let destLat: Double
+        let destLng: Double
+    }
+
     static func fetch(
         from origin: CLLocationCoordinate2D,
         to destination: CLLocationCoordinate2D
     ) async -> TransitItinerary? {
         guard GooglePlacesConfig.isConfigured else { return nil }
 
-        let body: [String: Any] = [
-            "origin": [
-                "location": ["latLng": [
-                    "latitude": origin.latitude,
-                    "longitude": origin.longitude
-                ]]
-            ],
-            "destination": [
-                "location": ["latLng": [
-                    "latitude": destination.latitude,
-                    "longitude": destination.longitude
-                ]]
-            ],
-            "travelMode": "TRANSIT",
-            "languageCode": "es"
-        ]
-
-        guard let url = URL(string: "https://routes.googleapis.com/directions/v2:computeRoutes") else { return nil }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(GooglePlacesConfig.apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
-        request.setValue(
-            "routes.legs.steps.transitDetails,routes.legs.steps.navigationInstruction," +
-            "routes.legs.steps.travelMode,routes.legs.steps.distanceMeters," +
-            "routes.legs.steps.staticDuration,routes.duration," +
-            "routes.legs.steps.transitDetails.stopDetails.departureStop.location," +
-            "routes.legs.steps.transitDetails.stopDetails.arrivalStop.location",
-            forHTTPHeaderField: "X-Goog-FieldMask"
-        )
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 15
-
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let data: Data = try await supabase.functions.invoke(
+                "google-routes",
+                options: .init(body: EdgeRequest(
+                    originLat: origin.latitude,
+                    originLng: origin.longitude,
+                    destLat: destination.latitude,
+                    destLng: destination.longitude
+                ))
+            )
             let response = try JSONDecoder().decode(RoutesAPIResponse.self, from: data)
             return response.toItinerary()
         } catch {

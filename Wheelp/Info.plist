@@ -16,9 +16,7 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
-	<key>GooglePlacesAPIKey</key>
-	<string>ROTATE_KEY_IN_GOOGLE_CLOUD_CONSOLE</string>
-	<key>CFBundleURLTypes</key>
+<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>

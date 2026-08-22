@@ -1,22 +1,12 @@
 import Foundation
 import MapKit
+import Supabase
 
-/// Clave de la API de Google Places (New).
-///
-/// La clave vive en Info.plist (clave "GooglePlacesAPIKey") para que rotar
-/// solo requiera editar ese archivo sin tocar código fuente.
-/// Pasos tras clonar: sustituir ROTATE_KEY_IN_GOOGLE_CLOUD_CONSOLE por la
-/// clave real, restringida por Bundle ID en Google Cloud Console.
+/// Acceso a Google Places vía Edge Function de Supabase.
+/// La API key vive como secret en el servidor (GOOGLE_PLACES_API_KEY) y
+/// nunca llega al dispositivo ni al binario de la app.
 enum GooglePlacesConfig {
-    static let apiKey: String = {
-        Bundle.main.infoDictionary?["GooglePlacesAPIKey"] as? String ?? ""
-    }()
-
-    static var isConfigured: Bool {
-        !apiKey.isEmpty
-            && apiKey != "TU_API_KEY_DE_GOOGLE"
-            && apiKey != "ROTATE_KEY_IN_GOOGLE_CLOUD_CONSOLE"
-    }
+    static let isConfigured = true
 }
 
 /// Obtiene accesibilidad real de Google Places (campo `accessibilityOptions`).
@@ -26,38 +16,26 @@ enum GooglePlacesAccessibilityService {
         let found: Bool
     }
 
-    private static let endpoint = URL(string: "https://places.googleapis.com/v1/places:searchText")!
+    private struct EdgeRequest: Encodable {
+        let name: String
+        let latitude: Double
+        let longitude: Double
+    }
 
     static func fetch(near coordinate: CLLocationCoordinate2D, name: String?) async -> Result {
-        guard GooglePlacesConfig.isConfigured, let name, !name.isEmpty else {
+        guard let name, !name.isEmpty else {
             return Result(statuses: [:], found: false)
         }
 
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 15
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(GooglePlacesConfig.apiKey, forHTTPHeaderField: "X-Goog-Api-Key")
-        request.setValue(
-            "places.displayName,places.accessibilityOptions",
-            forHTTPHeaderField: "X-Goog-FieldMask"
-        )
-
-        let body: [String: Any] = [
-            "textQuery": name,
-            "languageCode": "es",
-            "maxResultCount": 1,
-            "locationBias": [
-                "circle": [
-                    "center": ["latitude": coordinate.latitude, "longitude": coordinate.longitude],
-                    "radius": 500.0
-                ]
-            ]
-        ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
+            let data: Data = try await supabase.functions.invoke(
+                "google-places",
+                options: .init(body: EdgeRequest(
+                    name: name,
+                    latitude: coordinate.latitude,
+                    longitude: coordinate.longitude
+                ))
+            )
             let response = try JSONDecoder().decode(PlacesResponse.self, from: data)
             guard let options = response.places?.first?.accessibilityOptions else {
                 return Result(statuses: [:], found: false)
