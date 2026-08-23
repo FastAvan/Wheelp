@@ -730,22 +730,24 @@ enum HelperService {
         return rows ?? []
     }
 
-    /// Aprueba la solicitud e inserta al usuario en `helpers`.
-    /// Requiere la función SQL `admin_approve_helper(p_application_id uuid)` en Supabase.
     static func approveApplication(id: UUID) async -> Bool {
-        struct Params: Encodable { let p_application_id: UUID }
+        struct Body: Encodable { let action: String; let application_id: String }
         do {
-            try await supabase.rpc("admin_approve_helper", params: Params(p_application_id: id)).execute()
+            try await supabase.functions.invoke(
+                "admin-actions",
+                options: .init(body: Body(action: "approve", application_id: id.uuidString))
+            )
             return true
         } catch { return false }
     }
 
-    /// Rechaza la solicitud.
-    /// Requiere la función SQL `admin_reject_helper(p_application_id uuid)` en Supabase.
     static func rejectApplication(id: UUID) async -> Bool {
-        struct Params: Encodable { let p_application_id: UUID }
+        struct Body: Encodable { let action: String; let application_id: String }
         do {
-            try await supabase.rpc("admin_reject_helper", params: Params(p_application_id: id)).execute()
+            try await supabase.functions.invoke(
+                "admin-actions",
+                options: .init(body: Body(action: "reject", application_id: id.uuidString))
+            )
             return true
         } catch { return false }
     }

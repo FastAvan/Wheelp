@@ -1,9 +1,6 @@
 // Edge Function: google-places
 // Proxy para Google Places API (New) — la clave nunca sale del servidor.
-// Requiere un usuario de Supabase autenticado (no solo la anon key pública),
-// para que no cualquiera con la anon key pueda quemar la cuota de Google.
-// Parámetros: { name: string, latitude: number, longitude: number }
-// Retorna: respuesta JSON de Google (places.accessibilityOptions)
+// Requiere usuario autenticado; aplica rate limit de 10 llamadas/minuto por usuario.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -25,30 +22,33 @@ Deno.serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return json({ error: "Missing Authorization header" }, 401);
-  }
+  if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
+
   const authClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } },
   );
   const { data: { user }, error: authError } = await authClient.auth.getUser();
-  if (authError || !user) {
-    return json({ error: "Unauthorized" }, 401);
-  }
+  if (authError || !user) return json({ error: "Unauthorized" }, 401);
+
+  const serviceClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const { data: allowed } = await serviceClient.rpc("check_rate_limit", {
+    p_user_id: user.id,
+    p_endpoint: "google-places",
+    p_max_per_minute: 10,
+  });
+  if (!allowed) return json({ error: "Too many requests" }, 429);
 
   const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
-  if (!apiKey) {
-    return json({ error: "API key not configured" }, 500);
-  }
+  if (!apiKey) return json({ error: "API key not configured" }, 500);
 
   let payload: { name?: unknown; latitude?: unknown; longitude?: unknown };
-  try {
-    payload = await req.json();
-  } catch {
-    return json({ error: "Invalid JSON body" }, 400);
-  }
+  try { payload = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
+
   const { name, latitude, longitude } = payload;
   if (
     typeof name !== "string" || name.trim().length === 0 ||
@@ -62,12 +62,7 @@ Deno.serve(async (req) => {
     textQuery: name,
     languageCode: "es",
     maxResultCount: 1,
-    locationBias: {
-      circle: {
-        center: { latitude, longitude },
-        radius: 500.0,
-      },
-    },
+    locationBias: { circle: { center: { latitude, longitude }, radius: 500.0 } },
   };
 
   const controller = new AbortController();

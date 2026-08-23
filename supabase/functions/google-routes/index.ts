@@ -1,9 +1,6 @@
 // Edge Function: google-routes
 // Proxy para Google Routes API v2 (tránsito) — la clave nunca sale del servidor.
-// Requiere un usuario de Supabase autenticado (no solo la anon key pública),
-// para que no cualquiera con la anon key pueda quemar la cuota de Google.
-// Parámetros: { originLat, originLng, destLat, destLng: number }
-// Retorna: respuesta JSON de Google con pasos de transporte público
+// Requiere usuario autenticado; aplica rate limit de 10 llamadas/minuto por usuario.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -36,33 +33,35 @@ Deno.serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return json({ error: "Missing Authorization header" }, 401);
-  }
+  if (!authHeader) return json({ error: "Missing Authorization header" }, 401);
+
   const authClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } },
   );
   const { data: { user }, error: authError } = await authClient.auth.getUser();
-  if (authError || !user) {
-    return json({ error: "Unauthorized" }, 401);
-  }
+  if (authError || !user) return json({ error: "Unauthorized" }, 401);
+
+  const serviceClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const { data: allowed } = await serviceClient.rpc("check_rate_limit", {
+    p_user_id: user.id,
+    p_endpoint: "google-routes",
+    p_max_per_minute: 10,
+  });
+  if (!allowed) return json({ error: "Too many requests" }, 429);
 
   const apiKey = Deno.env.get("GOOGLE_PLACES_API_KEY");
-  if (!apiKey) {
-    return json({ error: "API key not configured" }, 500);
-  }
+  if (!apiKey) return json({ error: "API key not configured" }, 500);
 
   let payload: { originLat?: unknown; originLng?: unknown; destLat?: unknown; destLng?: unknown };
-  try {
-    payload = await req.json();
-  } catch {
-    return json({ error: "Invalid JSON body" }, 400);
-  }
+  try { payload = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
+
   const { originLat, originLng, destLat, destLng } = payload;
-  const coords = [originLat, originLng, destLat, destLng];
-  if (coords.some((v) => typeof v !== "number" || !Number.isFinite(v))) {
+  if ([originLat, originLng, destLat, destLng].some((v) => typeof v !== "number" || !Number.isFinite(v))) {
     return json({ error: "Invalid parameters" }, 400);
   }
 
