@@ -608,24 +608,29 @@ enum HelperService {
 
     // MARK: - Foto de perfil del ayudante
 
-    /// Guarda la foto como data URI en `helpers.avatar_url` (sin Supabase Storage).
-    /// Requiere columna `avatar_url TEXT` y política RLS UPDATE en la tabla helpers.
+    /// Sube la foto al bucket `helper-avatars` de Supabase Storage y guarda la URL pública
+    /// en `helpers.avatar_url`. Sustituye cualquier avatar anterior (upsert: true).
     static func uploadAvatar(_ imageData: Data) async -> String? {
         guard let userId = try? await supabase.auth.session.user.id else {
             print("[Wheelp] uploadAvatar: sin sesión activa")
             return nil
         }
-        let dataURL = "data:image/jpeg;base64," + imageData.base64EncodedString()
-        struct Row: Decodable {
-            let userId: UUID
-            enum CodingKeys: String, CodingKey { case userId = "user_id" }
-        }
+        let storagePath = "\(userId)/avatar.jpg"
         do {
-            // Usamos .select() para que PostgREST devuelva las filas actualizadas.
-            // Si RLS bloquea silenciosamente, el array estará vacío y detectamos el fallo.
+            try await supabase.storage
+                .from("helper-avatars")
+                .upload(storagePath, data: imageData, options: FileOptions(contentType: "image/jpeg", upsert: true))
+            let publicURL = try supabase.storage
+                .from("helper-avatars")
+                .getPublicURL(path: storagePath)
+            let urlString = publicURL.absoluteString
+            struct Row: Decodable {
+                let userId: UUID
+                enum CodingKeys: String, CodingKey { case userId = "user_id" }
+            }
             let updated: [Row] = try await supabase
                 .from("helpers")
-                .update(["avatar_url": dataURL])
+                .update(["avatar_url": urlString])
                 .eq("user_id", value: userId)
                 .select("user_id")
                 .execute()
@@ -634,8 +639,8 @@ enum HelperService {
                 print("[Wheelp] uploadAvatar: 0 filas actualizadas — falta política RLS UPDATE en helpers")
                 return nil
             }
-            print("[Wheelp] uploadAvatar: foto guardada (\(imageData.count / 1024) KB)")
-            return dataURL
+            print("[Wheelp] uploadAvatar: foto subida a Storage (\(imageData.count / 1024) KB)")
+            return urlString
         } catch {
             print("[Wheelp] uploadAvatar: fallo — \(error)")
             return nil
