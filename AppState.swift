@@ -157,16 +157,18 @@ final class AppState {
     }
 
     /// Paso 2: verifica el código OTP (type .email) y completa el inicio de sesión.
+    /// Espera a que isHelper se resuelva antes de devolver el control: si quedara en
+    /// un Task desacoplado, la pantalla de onboarding (que decide su flujo mirando
+    /// appState.isHelper) puede pintarse antes de que termine y tratar a un ayudante
+    /// ya dado de alta como si no lo fuera.
     func verifyOTPAndSignIn(email: String, code: String) async throws {
         try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
         userName = supabase.auth.currentSession?.user.email ?? email
         isSignedIn = true
-        Task { @MainActor in
-            isHelper = await HelperService.isRegisteredHelper()
-            if isHelper {
-                isHelperAvailable = await HelperService.fetchAvailability()
-                if isHelperAvailable { HelpRequestNotifier.shared.start() }
-            }
+        isHelper = await HelperService.isRegisteredHelper()
+        if isHelper {
+            isHelperAvailable = await HelperService.fetchAvailability()
+            if isHelperAvailable { HelpRequestNotifier.shared.start() }
         }
         if userName == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
@@ -196,12 +198,10 @@ final class AppState {
         ))
         userName = session.user.email
         isSignedIn = true
-        Task { @MainActor in
-            isHelper = await HelperService.isRegisteredHelper()
-            if isHelper {
-                isHelperAvailable = await HelperService.fetchAvailability()
-                if isHelperAvailable { HelpRequestNotifier.shared.start() }
-            }
+        isHelper = await HelperService.isRegisteredHelper()
+        if isHelper {
+            isHelperAvailable = await HelperService.fetchAvailability()
+            if isHelperAvailable { HelpRequestNotifier.shared.start() }
         }
         if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
