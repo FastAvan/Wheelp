@@ -147,8 +147,12 @@ final class AppState {
     }
 
     /// Paso 1: verifica contraseña y envía OTP al correo (plantilla Magic Link or OTP).
+    /// Cierra la sesión creada por el chequeo de contraseña inmediatamente: hasta que
+    /// no se verifique el OTP no debe existir ninguna sesión persistida, o el segundo
+    /// factor sería opcional (bootstrap() entraría con solo la contraseña).
     func initiateSignIn(email: String, password: String) async throws {
         _ = try await supabase.auth.signIn(email: email, password: password)
+        try await supabase.auth.signOut()
         try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: false)
     }
 

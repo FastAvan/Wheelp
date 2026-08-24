@@ -38,8 +38,10 @@ struct LoginView: View {
 
     private var isFormValid: Bool {
         switch mode {
-        case .signIn: email.contains("@") && password.count >= 8
-        case .signUp: email.contains("@") && password.count >= 8 && privacyAccepted && termsAccepted
+        // Solo exige longitud mínima al crear cuenta; en signIn no se debe bloquear
+        // a usuarios existentes con contraseñas de 8-11 caracteres.
+        case .signIn: email.contains("@") && !password.isEmpty
+        case .signUp: email.contains("@") && password.count >= 12 && privacyAccepted && termsAccepted
         case .pendingVerification: true
         case .otpVerification: otpCode.count == 6
         }

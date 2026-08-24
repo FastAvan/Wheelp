@@ -582,15 +582,17 @@ enum HelperService {
     }
 
     /// Nota media del ayudante (nil si todavía no tiene valoraciones).
+    /// Usa la función agregada `helper_rating_summary` en lugar de leer la tabla
+    /// directamente: la tabla ya no es legible fila a fila (expondría qué usuario
+    /// puso cada nota).
     static func averageRating(for helperId: UUID) async -> Double? {
         struct Row: Decodable {
             let avg: Double?
             enum CodingKeys: String, CodingKey { case avg }
         }
+        struct Params: Encodable { let p_helper_id: UUID }
         let rows: [Row]? = try? await supabase
-            .from("helper_ratings")
-            .select("avg:rating.avg()")
-            .eq("helper_id", value: helperId)
+            .rpc("helper_rating_summary", params: Params(p_helper_id: helperId))
             .execute()
             .value
         return rows?.first?.avg
