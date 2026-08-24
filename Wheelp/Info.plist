@@ -4,11 +4,14 @@
 <dict>
 	<!-- Export compliance: la app usa cifrado estándar propio (X25519 + HKDF-SHA256 +
 	     AES-GCM en HelpCrypto.swift) y NO está exenta de la Nota 4 (Cat. 5 Parte 2 EAR),
-	     porque incluye chat E2E. FALTA ITSEncryptionExportComplianceCode: Apple lo emite
-	     tras subir la documentación de export compliance en App Store Connect.
-	     Detalle y pasos pendientes en docs/Export-Compliance-Cifrado.md -->
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<true/>
+	     porque incluye chat E2E. Clasificación: 5D992.c, autoclasificación mass-market
+	     §742.15(b)(1). Ver docs/Export-Compliance-Cifrado.md
+
+	     NO volver a poner ITSAppUsesNonExemptEncryption aquí. Puesto en el commit
+	     970403e, provocó el rechazo ITMS-90592 en los builds 78 y 79 (2026-08-24):
+	     con esa key a YES Apple exige también ITSEncryptionExportComplianceCode y
+	     rechaza la entrega al no encontrarlo. La declaración se hace en App Store
+	     Connect, por build, que es donde Apple la espera. -->
 	<key>NSServices</key>
 	<array>
 		<dict/>

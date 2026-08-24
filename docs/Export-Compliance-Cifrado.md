@@ -40,8 +40,9 @@ de la información *ni* "enviar, recibir o almacenar información". Wheelp tiene
 **chat E2E entre solicitante y ayudante** (`HelpChatView` / `HelperService`),
 que es justo el caso que BIS excluye de la Nota 4.
 
-`Wheelp/Info.plist` ya lleva `ITSAppUsesNonExemptEncryption = YES`, así que
-Xcode deja de preguntar en cada subida.
+Esta respuesta se da en App Store Connect, por build. **No** se fija con
+`ITSAppUsesNonExemptEncryption` en el Info.plist: se intentó y provocó el
+rechazo ITMS-90592 (ver abajo).
 
 ## Clasificación regulatoria (corregido por `wheelp-legal`, 2026-08-24)
 
@@ -61,29 +62,51 @@ Xcode deja de preguntar en cada subida.
 
 | # | Qué | Quién | Cuándo |
 |---|---|---|---|
-| a | Localizar/generar el código de export compliance en App Store Connect | Álvaro | **bloquea el envío** |
-| b | Meter ese código en `ITSEncryptionExportComplianceCode` (Info.plist) | ingeniería | en cuanto llegue de (a) |
-| c | Self Classification Report a BIS + NSA (`MMKT`, 5D992.c) | `wheelp-legal` | 1 feb 2027, y cada año |
+| a | Responder el cuestionario de cifrado en el build de TestFlight | Álvaro | cuando el build entre |
+| b | Self Classification Report a BIS + NSA (`MMKT`, 5D992.c) | `wheelp-legal` | 1 feb 2027, y cada año |
 
-## Rechazo ITMS-90592 (build 78, 2026-08-24)
+Ya no hay nada pendiente de ingeniería. La ruta de
+`ITSEncryptionExportComplianceCode` queda descartada (ver abajo).
+
+## Rechazo ITMS-90592 (builds 78 y 79, 2026-08-24) — RESUELTO
 
 > The export compliance key value [] in the app's Info.plist doesn't match the
 > key value of the app's export compliance documentation.
 
-Causa: en App Store Connect **ya existe** documentación de export compliance
-con un código asociado, y el Info.plist manda vacío (la key no está). Apple
-compara los dos y rechaza. Dos salidas, en orden de preferencia:
+**Causa: nuestra, no de App Store Connect.** El commit `970403e` metió
+`ITSAppUsesNonExemptEncryption = YES` en el Info.plist. Con esa key a YES Apple
+exige **también** `ITSEncryptionExportComplianceCode` en el mismo plist; al no
+encontrarlo lo lee como `[]` y rechaza la entrega.
 
-1. **Si App Store Connect muestra un código** → copiarlo tal cual a
-   `ITSEncryptionExportComplianceCode` en `Wheelp/Info.plist`. Una línea, fin.
-2. **Si no hay ningún código porque en realidad no hay documentación subida**
-   (que es lo esperable: con autoclasificación mass-market no hay CCATS) →
-   borrar/reiniciar la documentación de export compliance en App Store Connect
-   y responder el cuestionario por versión. Sin documentación, Apple no espera
-   ningún código y el plist se queda como está.
+Cómo se confirmó, para no volver a perder el tiempo:
 
-El código no es secreto (Apple lo asocia públicamente a la app), así que se
-puede comitear en el plist sin problema.
+- Los rechazos del 6-7 de agosto (hasta el build 30) eran `ITMS-90717` (canal
+  alfa en el icono). `ITMS-90592` aparece **solo** en los builds posteriores a
+  `970403e`. La correlación es exacta.
+- No hay ningún `INFOPLIST_KEY_ITS*` en el pbxproj ni xcconfig: el `[]` es
+  Apple imprimiendo una key ausente, no un valor vacío inyectado por el build.
+- En App Store Connect no había documentación de export compliance por ningún
+  lado — porque nunca la hubo. No era un problema de permisos ni de rol.
+
+**Fix (2026-08-24): quitar `ITSAppUsesNonExemptEncryption` del Info.plist.**
+Sin esa key, Apple no hace la comprobación en la entrega, el build sube, y la
+declaración se hace en App Store Connect por build. La sustancia declarada es
+idéntica a lo que decidió legal (no exenta, algoritmos estándar, 5D992.c).
+
+Coste: Apple pregunta el cuestionario de cifrado una vez por build en ASC. Es
+justo lo que la key pretendía ahorrar; no compensa a cambio de builds
+rechazados. Si algún día Apple emite un `ITSEncryptionExportComplianceCode`
+real para la app, entonces sí se pueden poner **las dos** keys juntas — nunca
+`ITSAppUsesNonExemptEncryption` sola.
+
+### Qué contestar en el cuestionario de App Store Connect
+
+Es la misma decisión de siempre:
+
+1. ¿Usa cifrado? → **Sí**.
+2. ¿Cumple alguna exención? → **No** (chat E2E, ver arriba).
+3. ¿Algoritmos propietarios? → **No**, todos estándar publicados.
+4. ¿Disponible en el App Store de EE.UU.? → Sí → mass-market, 5D992.c.
 
 ## Numeración de build (Xcode Cloud)
 
