@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		70F9851F00FCEE45AD2BA1DC /* HelpCryptoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */; };
 		7D1C7BD12FEE8C0500302B3D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD02FEE8C0500302B3D /* Supabase */; };
 		7D1C7BD32FEE8C1100302B3D /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD22FEE8C1100302B3D /* Auth */; };
 		7D1C7BD52FEE8C1100302B3D /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD42FEE8C1100302B3D /* Functions */; };
@@ -62,10 +63,23 @@
 		7DFCEDA42FF25A4A00D2D815 /* AccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */; };
 		7DFCEDA62FF25A5700D2D815 /* ContributeAccessibilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */; };
 		7DFCEDA82FF25B3200D2D815 /* OSMAccessibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */; };
+		D16187174840A57B4BF115B9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEE39C0564D31240B769B331 /* Foundation.framework */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		9435434AA17093B59E9D9457 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = Wheelp;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Wheelp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wheelp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		29BF7BF86170D3D9BF14815E /* WheelpTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WheelpTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HelpCryptoTests.swift; path = HelpCryptoTests.swift; sourceTree = "<group>"; };
 		7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitRoutingService.swift; sourceTree = "<group>"; };
 		7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminApplicationsView.swift; sourceTree = "<group>"; };
 		7D1D46913024745A00E891DD /* AdminNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminNotifier.swift; sourceTree = "<group>"; };
@@ -114,6 +128,7 @@
 		7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
 		7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributeAccessibilityView.swift; sourceTree = "<group>"; };
 		7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSMAccessibilityService.swift; sourceTree = "<group>"; };
+		BEE39C0564D31240B769B331 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -149,6 +164,14 @@
 				7D1C7BD92FEE8C1100302B3D /* Realtime in Frameworks */,
 				7D1C7BD12FEE8C0500302B3D /* Supabase in Frameworks */,
 			);
+		};
+		3893CFF95A19874B09798BE6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D16187174840A57B4BF115B9 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -207,6 +230,7 @@
 				7DDD6C7F3024A1BE00E34CA0 /* HelpRequestNotifier.swift */,
 				7D43554A302646C1005291B9 /* PasswordResetView.swift */,
 				7D43554C302649AB005291B9 /* PreLoginOnboardingView.swift */,
+				26276811F1F012CDAF52DD6A /* WheelpTests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -214,13 +238,32 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* Wheelp.app */,
+				29BF7BF86170D3D9BF14815E /* WheelpTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		26276811F1F012CDAF52DD6A /* WheelpTests */ = {
+			isa = PBXGroup;
+			children = (
+				69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */,
+			);
+			name = WheelpTests;
+			path = WheelpTests;
+			sourceTree = "<group>";
+		};
+		3B6748EA7EAF22055084117D /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				BEE39C0564D31240B769B331 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		7D1C7BCF2FEE8C0500302B3D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				3B6748EA7EAF22055084117D /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -238,6 +281,8 @@
 			);
 			buildRules = (
 			);
+			dependencies = (
+			);
 			fileSystemSynchronizedGroups = (
 				000000000000000000000010 /* Wheelp */,
 			);
@@ -254,6 +299,24 @@
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* Wheelp.app */;
 			productType = "com.apple.product-type.application";
+		};
+		0D0C2F28DA7ECFC8D4F52D69 /* WheelpTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3F89B0E8D9D740D6703E51DE /* Build configuration list for PBXNativeTarget "WheelpTests" */;
+			buildPhases = (
+				9B0002844D1800AE9AE59259 /* Sources */,
+				3893CFF95A19874B09798BE6 /* Frameworks */,
+				DFE2361A97406949FDB5BD53 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4F91C74B6D30C7814B0E9A5B /* PBXTargetDependency */,
+			);
+			name = WheelpTests;
+			productName = WheelpTests;
+			productReference = 29BF7BF86170D3D9BF14815E /* WheelpTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -289,6 +352,7 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* Wheelp */,
+				0D0C2F28DA7ECFC8D4F52D69 /* WheelpTests */,
 			);
 		};
 /* End PBXProject section */
@@ -298,6 +362,13 @@
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
+		};
+		DFE2361A97406949FDB5BD53 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
@@ -355,10 +426,27 @@
 				7DAD65C4300685DA00CBB79B /* MapHomeModel.swift in Sources */,
 			);
 		};
+		9B0002844D1800AE9AE59259 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				70F9851F00FCEE45AD2BA1DC /* HelpCryptoTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		4F91C74B6D30C7814B0E9A5B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Wheelp;
+			target = 000000000000000100000000 /* Wheelp */;
+			targetProxy = 9435434AA17093B59E9D9457 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
-		000000000000000011000000 /* Debug configuration for PBXProject "Wheelp" */ = {
+		000000000000000011000000 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -428,7 +516,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000012000000 /* Release configuration for PBXProject "Wheelp" */ = {
+		000000000000000012000000 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -490,7 +578,7 @@
 			};
 			name = Release;
 		};
-		000000000000000111000000 /* Debug configuration for PBXNativeTarget "Wheelp" */ = {
+		000000000000000111000000 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -554,7 +642,7 @@
 			};
 			name = Debug;
 		};
-		000000000000000112000000 /* Release configuration for PBXNativeTarget "Wheelp" */ = {
+		000000000000000112000000 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -618,23 +706,67 @@
 			};
 			name = Release;
 		};
+		545E6ABBE2FF8E5C026644DC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = fastavan.wheelp.WheelpTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wheelp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Wheelp";
+			};
+			name = Debug;
+		};
+		7A4E7F21F8278FE505870262 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = fastavan.wheelp.WheelpTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wheelp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Wheelp";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
 		000000000000000010000000 /* Build configuration list for PBXProject "Wheelp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000011000000 /* Debug configuration for PBXProject "Wheelp" */,
-				000000000000000012000000 /* Release configuration for PBXProject "Wheelp" */,
+				000000000000000011000000 /* Debug */,
+				000000000000000012000000 /* Release */,
 			);
 			defaultConfigurationName = Release;
 		};
 		000000000000000110000000 /* Build configuration list for PBXNativeTarget "Wheelp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				000000000000000111000000 /* Debug configuration for PBXNativeTarget "Wheelp" */,
-				000000000000000112000000 /* Release configuration for PBXNativeTarget "Wheelp" */,
+				000000000000000111000000 /* Debug */,
+				000000000000000112000000 /* Release */,
 			);
+			defaultConfigurationName = Release;
+		};
+		3F89B0E8D9D740D6703E51DE /* Build configuration list for PBXNativeTarget "WheelpTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A4E7F21F8278FE505870262 /* Release */,
+				545E6ABBE2FF8E5C026644DC /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */

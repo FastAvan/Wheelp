@@ -23,5 +23,13 @@ jobs:
             IPHONEOS_DEPLOYMENT_TARGET=17.0 \
             | grep -E "^(Build|error:|warning:|CompileSwift|Ld )" || true
 
-      - name: Validate crypto protocol
+      - name: Run XCTest suite (WheelpTests)
+        run: |
+          xcodebuild test \
+            -workspace Wheelp.xcworkspace \
+            -scheme Wheelp \
+            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate crypto protocol (standalone)
         run: swift scripts/validate.swift
