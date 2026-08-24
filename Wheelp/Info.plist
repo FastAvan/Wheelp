@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Export compliance: la app usa cifrado estándar propio (X25519 + HKDF-SHA256 +
+	     AES-GCM en HelpCrypto.swift) y NO está exenta de la Nota 4 (Cat. 5 Parte 2 EAR),
+	     porque incluye chat E2E. FALTA ITSEncryptionExportComplianceCode: Apple lo emite
+	     tras subir la documentación de export compliance en App Store Connect.
+	     Detalle y pasos pendientes en docs/Export-Compliance-Cifrado.md -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 	<key>NSServices</key>
 	<array>
 		<dict/>
