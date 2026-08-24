@@ -43,26 +43,53 @@ que es justo el caso que BIS excluye de la Nota 4.
 `Wheelp/Info.plist` ya lleva `ITSAppUsesNonExemptEncryption = YES`, así que
 Xcode deja de preguntar en cada subida.
 
+## Clasificación regulatoria (corregido por `wheelp-legal`, 2026-08-24)
+
+- **ECCN 5D992.c** por autoclasificación mass-market, **§742.15(b)(1)**.
+  No es License Exception ENC / 5D002 — eso era una suposición mía, errónea.
+- Tipo de autorización a declarar en el report: **`MMKT`**.
+- **No hace falta registro previo (ERN).** El ERN se eliminó del EAR en el rule
+  de septiembre de 2016. Si lees "hay que registrarse antes de exportar" en
+  cualquier sitio, está desactualizado.
+- Única obligación recurrente: **Self Classification Report anual**, por email
+  con CSV adjunto a `crypt-supp8@bis.doc.gov` y `enc@nsa.gov`.
+  Primer plazo: **1 de febrero de 2027** (cubriendo exportaciones de 2026).
+  → Lo prepara y presenta **`wheelp-legal`**, no ingeniería. Ingeniería solo
+  aporta la tabla de algoritmos de arriba.
+
 ## Pendiente
 
 | # | Qué | Quién | Cuándo |
 |---|---|---|---|
-| a | Subir la documentación de export compliance en App Store Connect | Álvaro | antes de distribuir el build |
-| b | Meter el código que devuelva Apple en `ITSEncryptionExportComplianceCode` (Info.plist) | ingeniería | en cuanto llegue de (a) |
-| c | **Self Classification Report ante BIS y NSA** | `wheelp-legal` | antes del **1 de febrero**, y **cada año** mientras la app tenga chat E2E |
+| a | Localizar/generar el código de export compliance en App Store Connect | Álvaro | **bloquea el envío** |
+| b | Meter ese código en `ITSEncryptionExportComplianceCode` (Info.plist) | ingeniería | en cuanto llegue de (a) |
+| c | Self Classification Report a BIS + NSA (`MMKT`, 5D992.c) | `wheelp-legal` | 1 feb 2027, y cada año |
 
-(b) no está en el plist todavía — sin él Apple vuelve a pedir la documentación
-en cada envío nuevo, aunque el build sí se acepta.
+## Rechazo ITMS-90592 (build 78, 2026-08-24)
 
-### Sobre (c) — esto es un trámite legal, no documentación técnica
+> The export compliance key value [] in the app's Info.plist doesn't match the
+> key value of the app's export compliance documentation.
 
-Sin exención, la vía es la clasificación mass-market **740.17(b)(1)**: registro
-ERN + informe anual de autoclasificación ante BIS y NSA. Es un filing
-regulatorio con obligaciones recurrentes y consecuencias por incumplimiento.
+Causa: en App Store Connect **ya existe** documentación de export compliance
+con un código asociado, y el Info.plist manda vacío (la key no está). Apple
+compara los dos y rechaza. Dos salidas, en orden de preferencia:
 
-→ **Lo lleva o lo supervisa `wheelp-legal`.** Ingeniería aporta el material
-técnico (esta tabla de algoritmos, la descripción funcional de la app, este
-documento); el filing y su seguimiento anual no los hace ingeniería sola.
+1. **Si App Store Connect muestra un código** → copiarlo tal cual a
+   `ITSEncryptionExportComplianceCode` en `Wheelp/Info.plist`. Una línea, fin.
+2. **Si no hay ningún código porque en realidad no hay documentación subida**
+   (que es lo esperable: con autoclasificación mass-market no hay CCATS) →
+   borrar/reiniciar la documentación de export compliance en App Store Connect
+   y responder el cuestionario por versión. Sin documentación, Apple no espera
+   ningún código y el plist se queda como está.
+
+El código no es secreto (Apple lo asocia públicamente a la app), así que se
+puede comitear en el plist sin problema.
+
+## Numeración de build (Xcode Cloud)
+
+Xcode Cloud **ignora** `CURRENT_PROJECT_VERSION` del pbxproj y pone su propio
+build number incremental (por eso el pbxproj dice 2 y Apple recibió el 78).
+No hay que tocarlo a mano: subir ese número en el pbxproj no hace nada.
 
 ## Revisar esta nota si
 
