@@ -226,18 +226,26 @@ enum HelperService {
     }
 
     /// ¿El usuario actual está dado de alta como ayudante (tabla `helpers`)?
-    static func isRegisteredHelper() async -> Bool {
+    /// `true`/`false` solo cuando el servidor responde. `nil` = no se pudo saber
+    /// (401 por token caducado, red caída, 500…). Quien llame NO debe tratar el
+    /// `nil` como "no es ayudante": eso degradaba a un ayudante real a usuario
+    /// normal ante cualquier fallo transitorio.
+    static func isRegisteredHelper() async -> Bool? {
         struct Row: Codable { let userId: UUID
             enum CodingKeys: String, CodingKey { case userId = "user_id" }
         }
-        guard let userId = try? await supabase.auth.session.user.id else { return false }
-        let rows: [Row]? = try? await supabase
-            .from("helpers")
-            .select("user_id")
-            .eq("user_id", value: userId)
-            .execute()
-            .value
-        return !(rows ?? []).isEmpty
+        guard let userId = try? await supabase.auth.session.user.id else { return nil }
+        do {
+            let rows: [Row] = try await supabase
+                .from("helpers")
+                .select("user_id")
+                .eq("user_id", value: userId)
+                .execute()
+                .value
+            return !rows.isEmpty
+        } catch {
+            return nil
+        }
     }
 
     /// Identificador del usuario actual (para distinguir roles y mensajes).

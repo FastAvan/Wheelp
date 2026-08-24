@@ -77,7 +77,11 @@ final class AppState {
 
     /// ¿Este usuario es ayudante? Se decide FUERA de la app: el equipo de Wheelp
     /// da de alta al usuario en la tabla `helpers` de Supabase y la app lo detecta.
-    var isHelper = false
+    /// Se persiste en UserDefaults para que un fallo transitorio de red o de token
+    /// no degrade a un ayudante a usuario normal (ver `refreshHelperStatus`).
+    var isHelper: Bool {
+        didSet { defaults.set(isHelper, forKey: Keys.helper) }
+    }
     var needsPasswordReset = false
 
     /// El ayudante ha activado su disponibilidad para recibir peticiones de ayuda.
@@ -104,6 +108,19 @@ final class AppState {
         static let trustedContact = "wheelp.trustedContactPhone"
         static let termsAccepted = "wheelp.hasAcceptedTerms"
         static let helperAvailable = "wheelp.helperAvailable"
+        static let helper = "wheelp.isHelper"
+    }
+
+    /// Consulta el estado de ayudante y lo aplica SOLO si el servidor respondió.
+    /// Si la consulta falló (`nil`) se conserva el último valor conocido: perder
+    /// el modo ayudante por un 401 deja al ayudante sin poder recibir peticiones.
+    private func refreshHelperStatus() async {
+        if let registered = await HelperService.isRegisteredHelper() {
+            isHelper = registered
+        }
+        guard isHelper else { return }
+        isHelperAvailable = await HelperService.fetchAvailability()
+        if isHelperAvailable { HelpRequestNotifier.shared.start() }
     }
 
     init() {
@@ -119,6 +136,7 @@ final class AppState {
         hasAcceptedTerms = defaults.bool(forKey: Keys.termsAccepted)
         // Disponibilidad: true por defecto para no interrumpir ayudantes existentes.
         isHelperAvailable = (defaults.object(forKey: Keys.helperAvailable) as? Bool) ?? true
+        isHelper = defaults.bool(forKey: Keys.helper)
     }
 
     // MARK: - Autenticación (Supabase)
@@ -128,20 +146,17 @@ final class AppState {
     /// solo va a la red si no hay ninguna. El estado de ayudante se
     /// comprueba en segundo plano para no retrasar el arranque.
     func bootstrap() async {
-        var session = supabase.auth.currentSession
+        // `supabase.auth.session` refresca el access token si está caducado;
+        // `currentSession` devuelve el guardado tal cual y las primeras consultas
+        // salían con un token muerto (401) mientras el refresco iba en paralelo.
+        var session = try? await supabase.auth.session
         if session == nil {
-            session = try? await supabase.auth.session
+            session = supabase.auth.currentSession
         }
         if let session {
             isSignedIn = true
             userName = session.user.email
-            Task { @MainActor in
-                isHelper = await HelperService.isRegisteredHelper()
-                if isHelper {
-                    isHelperAvailable = await HelperService.fetchAvailability()
-                    if isHelperAvailable { HelpRequestNotifier.shared.start() }
-                }
-            }
+            Task { @MainActor in await refreshHelperStatus() }
             if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
         }
     }
@@ -165,11 +180,7 @@ final class AppState {
         try await supabase.auth.verifyOTP(email: email, token: code, type: .email)
         userName = supabase.auth.currentSession?.user.email ?? email
         isSignedIn = true
-        isHelper = await HelperService.isRegisteredHelper()
-        if isHelper {
-            isHelperAvailable = await HelperService.fetchAvailability()
-            if isHelperAvailable { HelpRequestNotifier.shared.start() }
-        }
+        await refreshHelperStatus()
         if userName == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
 
@@ -198,11 +209,7 @@ final class AppState {
         ))
         userName = session.user.email
         isSignedIn = true
-        isHelper = await HelperService.isRegisteredHelper()
-        if isHelper {
-            isHelperAvailable = await HelperService.fetchAvailability()
-            if isHelperAvailable { HelpRequestNotifier.shared.start() }
-        }
+        await refreshHelperStatus()
         if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
 
@@ -271,7 +278,7 @@ final class AppState {
         try? await supabase.auth.signOut()
         [Keys.onboarded, Keys.disability, Keys.voiceControl,
          Keys.voiceRate, Keys.displayName, Keys.trustedContact,
-         Keys.termsAccepted, Keys.helperAvailable]
+         Keys.termsAccepted, Keys.helperAvailable, Keys.helper]
             .forEach { defaults.removeObject(forKey: $0) }
         // Delete saved places and route history from disk.
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
