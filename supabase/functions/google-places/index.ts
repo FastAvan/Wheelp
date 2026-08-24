@@ -37,9 +37,7 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
   const { data: allowed } = await serviceClient.rpc("check_rate_limit", {
-    p_user_id: user.id,
     p_endpoint: "google-places",
-    p_max_per_minute: 10,
   });
   if (!allowed) return json({ error: "Too many requests" }, 429);
 
