@@ -8,7 +8,10 @@ on:
 
 jobs:
   build-and-validate:
-    runs-on: macos-15
+    # macos-15 trae como mucho Xcode 16.4 (Swift 6.1.2) y DiditSDK.framework
+    # está compilado con Swift 6.3.3: el módulo no carga en un toolchain más
+    # antiguo. macos-26 trae Xcode 26.x, con Swift >= 6.3.3.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
@@ -20,15 +23,14 @@ jobs:
             -sdk iphonesimulator \
             -destination "generic/platform=iOS Simulator" \
             CODE_SIGNING_ALLOWED=NO \
-            IPHONEOS_DEPLOYMENT_TARGET=17.0 \
-            | grep -E "^(Build|error:|warning:|CompileSwift|Ld )" || true
+            IPHONEOS_DEPLOYMENT_TARGET=17.0
 
       - name: Run XCTest suite (WheelpTests)
         run: |
           xcodebuild test \
             -workspace Wheelp.xcworkspace \
             -scheme Wheelp \
-            -destination "platform=iOS Simulator,name=iPhone 16,OS=latest" \
+            -destination "platform=iOS Simulator,name=iPhone 17,OS=latest" \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Validate crypto protocol (standalone)
