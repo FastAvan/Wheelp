@@ -211,18 +211,25 @@ enum HelperService {
             .execute()
     }
 
-    /// Devuelve la disponibilidad guardada en Supabase (true si no existe la columna aún).
-    static func fetchAvailability() async -> Bool {
+    /// Disponibilidad guardada en Supabase. `nil` = no se pudo saber (401, red
+    /// caída, 500…); igual que en `isRegisteredHelper`, quien llame debe conservar
+    /// el último valor conocido en vez de inventarse uno. Si la fila responde con
+    /// `available` a null (columna aún sin valor) se asume `true`.
+    static func fetchAvailability() async -> Bool? {
         struct Row: Decodable { let available: Bool? }
-        guard let userId = try? await supabase.auth.session.user.id else { return true }
-        let row: Row? = try? await supabase
-            .from("helpers")
-            .select("available")
-            .eq("user_id", value: userId)
-            .single()
-            .execute()
-            .value
-        return row?.available ?? true
+        guard let userId = try? await supabase.auth.session.user.id else { return nil }
+        do {
+            let row: Row = try await supabase
+                .from("helpers")
+                .select("available")
+                .eq("user_id", value: userId)
+                .single()
+                .execute()
+                .value
+            return row.available ?? true
+        } catch {
+            return nil
+        }
     }
 
     /// ¿El usuario actual está dado de alta como ayudante (tabla `helpers`)?

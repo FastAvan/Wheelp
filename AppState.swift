@@ -119,7 +119,9 @@ final class AppState {
             isHelper = registered
         }
         guard isHelper else { return }
-        isHelperAvailable = await HelperService.fetchAvailability()
+        if let available = await HelperService.fetchAvailability() {
+            isHelperAvailable = available
+        }
         if isHelperAvailable { HelpRequestNotifier.shared.start() }
     }
 
