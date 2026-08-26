@@ -36,8 +36,11 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
+  // p_user_id: el JWT de service_role no tiene `sub`, así que auth.uid() es NULL
+  // dentro de la RPC. El id viene de auth.getUser() ya validado más arriba.
   const { data: allowed } = await serviceClient.rpc("check_rate_limit", {
     p_endpoint: "google-places",
+    p_user_id: user.id,
   });
   if (!allowed) return json({ error: "Too many requests" }, 429);
 
