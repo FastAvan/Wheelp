@@ -246,66 +246,13 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         preview(item, profile: profile)
     }
 
-    /// Puntuación de accesibilidad de cada resultado (clave: placeKey).
-    var resultScores: [String: Int] = [:]
-
-    /// Puntuación conocida de un resultado de búsqueda (nil = sin datos).
-    func score(for item: MKMapItem) -> Int? {
-        resultScores[AccessibilityService.placeKey(for: item)]
-    }
-
-    /// Puntúa los resultados con los mismos datos que la ficha y los ordena
-    /// por accesibilidad: mejor conocida primero, sin datos al final.
-    private func rankByAccessibility(
-        _ items: [MKMapItem],
-        profile: AccessibilityProfile
-    ) async -> (items: [MKMapItem], scores: [String: Int]) {
-        var scores: [String: Int] = [:]
-        await withTaskGroup(of: (Int, Int?).self) { group in
-            for index in items.indices {
-                group.addTask {
-                    (index, await Self.accessibilityScore(of: items[index], profile: profile))
-                }
-            }
-            for await (index, score) in group {
-                if let score {
-                    scores[AccessibilityService.placeKey(for: items[index])] = score
-                }
-            }
-        }
-        func score(_ item: MKMapItem) -> Int? { scores[AccessibilityService.placeKey(for: item)] }
-        let ordered = items.enumerated().sorted { a, b in
-            switch (score(a.element), score(b.element)) {
-            case let (x?, y?): x == y ? a.offset < b.offset : x > y
-            case (.some, nil): true
-            case (nil, .some): false
-            case (nil, nil): a.offset < b.offset
-            }
-        }.map(\.element)
-        return (ordered, scores)
-    }
-
-    private static func accessibilityScore(
-        of item: MKMapItem,
-        profile: AccessibilityProfile
-    ) async -> Int? {
-        let coordinate = item.placemark.coordinate
-        async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
-        let reports = (try? await AccessibilityService.fetchReports(
-            placeKey: AccessibilityService.placeKey(for: item),
-            disabilityType: profile.type
-        )) ?? []
-        let google = await googleResult
-        let access = DestinationAccessibility.combined(
-            base: google.statuses,
-            sourceName: nil,
-            reports: reports,
-            profile: profile
-        )
-        return access.hasAnyKnownFeature ? access.score : nil
-    }
-
-    /// Busca lugares que coincidan con el texto completo y los ordena por accesibilidad.
+    /// Busca lugares que coincidan con el texto completo.
+    ///
+    /// La búsqueda NO consulta accesibilidad: antes se puntuaba cada resultado
+    /// (5 llamadas a `google-places` por búsqueda, facturadas por llamada) solo
+    /// para ordenar la lista, lo que agotaba la cuota y dejaba la ficha del
+    /// destino sin datos. La accesibilidad se pide una sola vez, al abrir la
+    /// ficha de un destino concreto (`loadAccessibility`).
     func search(near center: CLLocationCoordinate2D?, profile: AccessibilityProfile) {
         searchTask?.cancel()
         completions = []
@@ -313,7 +260,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         let text = query.trimmingCharacters(in: .whitespaces)
         guard text.count >= 3 else {
             results = []
-            resultScores = [:]
             return
         }
         searchTask = Task {
@@ -329,13 +275,7 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
             do {
                 let response = try await MKLocalSearch(request: request).start()
                 guard !Task.isCancelled else { return }
-                let ranked = await rankByAccessibility(
-                    Array(response.mapItems.prefix(5)),
-                    profile: profile
-                )
-                guard !Task.isCancelled else { return }
-                results = ranked.items
-                resultScores = ranked.scores
+                results = Array(response.mapItems.prefix(5))
             } catch {
                 // Búsqueda cancelada o sin resultados.
             }
@@ -349,7 +289,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         previewAccessibilityByType = [:]
         isLoadingAccessibility = true
         results = []
-        resultScores = [:]
         completions = []
         completer.queryFragment = ""
         query = ""
@@ -709,7 +648,6 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         contributionNotice = nil
         query = ""
         results = []
-        resultScores = [:]
         completions = []
         completer.queryFragment = ""
         errorMessage = nil
