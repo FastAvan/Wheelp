@@ -11,7 +11,7 @@ enum GooglePlacesConfig {
 
 /// Obtiene accesibilidad real de Google Places (campo `accessibilityOptions`).
 enum GooglePlacesAccessibilityService {
-    struct Result {
+    struct Result: Sendable {
         let statuses: [String: DestinationAccessibility.Feature.Status]
         let found: Bool
     }
@@ -22,10 +22,28 @@ enum GooglePlacesAccessibilityService {
         let longitude: Double
     }
 
+    /// Caché en memoria por lugar. Una búsqueda ordena 5 resultados por accesibilidad
+    /// (5 llamadas) y la ficha del destino repetía una sexta para el mismo sitio: con el
+    /// cap de 10/min del servidor, dos búsquedas agotaban la cuota y todo caía al
+    /// fallback lento de OpenStreetMap.
+    private actor Cache {
+        private var entries: [String: (result: Result, at: Date)] = [:]
+        func value(for key: String) -> Result? {
+            guard let e = entries[key], Date().timeIntervalSince(e.at) < 600 else { return nil }
+            return e.result
+        }
+        func store(_ result: Result, for key: String) { entries[key] = (result, Date()) }
+    }
+    private static let cache = Cache()
+
     static func fetch(near coordinate: CLLocationCoordinate2D, name: String?) async -> Result {
         guard let name, !name.isEmpty else {
             return Result(statuses: [:], found: false)
         }
+
+        // ~11 m de resolución: suficiente para identificar el mismo sitio.
+        let key = String(format: "%@|%.4f|%.4f", name, coordinate.latitude, coordinate.longitude)
+        if let cached = await cache.value(for: key) { return cached }
 
         do {
             let data: Data = try await supabase.functions.invoke(
@@ -37,10 +55,13 @@ enum GooglePlacesAccessibilityService {
                 ))
             )
             let response = try JSONDecoder().decode(PlacesResponse.self, from: data)
-            guard let options = response.places?.first?.accessibilityOptions else {
-                return Result(statuses: [:], found: false)
-            }
-            return Result(statuses: map(options), found: true)
+            // `places == nil` es un error del servidor (429, 502…), no un "sin datos":
+            // no se cachea para que el siguiente intento vuelva a preguntar.
+            guard let places = response.places else { return Result(statuses: [:], found: false) }
+            let result = places.first?.accessibilityOptions.map { Result(statuses: map($0), found: true) }
+                ?? Result(statuses: [:], found: false)
+            await cache.store(result, for: key)
+            return result
         } catch {
             return Result(statuses: [:], found: false)
         }

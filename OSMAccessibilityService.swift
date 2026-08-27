@@ -10,7 +10,7 @@ enum OSMAccessibilityService {
     static func fetchTags(near coordinate: CLLocationCoordinate2D, name: String?) async -> [String: String] {
         // Busca nodos/vías/relaciones en ~60 m alrededor del destino.
         let query = """
-        [out:json][timeout:20];
+        [out:json][timeout:8];
         nwr(around:60,\(coordinate.latitude),\(coordinate.longitude));
         out tags center 40;
         """
@@ -20,7 +20,7 @@ enum OSMAccessibilityService {
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = "data=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
             .data(using: .utf8)
-        request.timeoutInterval = 20
+        request.timeoutInterval = 8
 
         do {
             let (data, _) = try await URLSession.shared.data(for: request)
