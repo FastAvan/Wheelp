@@ -80,7 +80,22 @@ final class AppState {
     /// Se persiste en UserDefaults para que un fallo transitorio de red o de token
     /// no degrade a un ayudante a usuario normal (ver `refreshHelperStatus`).
     var isHelper: Bool {
-        didSet { defaults.set(isHelper, forKey: Keys.helper) }
+        didSet {
+            defaults.set(isHelper, forKey: Keys.helper)
+            enforceHelperStandardVersion()
+        }
+    }
+
+    /// Guard retroactivo: un ayudante usa SIEMPRE la versión Estándar. Corrige el
+    /// tipo ya guardado en dispositivos afectados por el `ForEach` invertido de
+    /// `SettingsView`, que durante tres semanas ofreció a los ayudantes física/
+    /// auditiva/visual y les rompía el carrusel de accesibilidad del destino.
+    ///
+    /// No toca `nil`: `nil` significa "onboarding pendiente" y `OnboardingFlowView`
+    /// se saltaría la encuesta si lo convirtiéramos en `.none`.
+    private func enforceHelperStandardVersion() {
+        guard isHelper, let type = disabilityType, type != .none else { return }
+        setDisability(.none)
     }
     var needsPasswordReset = false
 
@@ -139,6 +154,10 @@ final class AppState {
         // Disponibilidad: true por defecto para no interrumpir ayudantes existentes.
         isHelperAvailable = (defaults.object(forKey: Keys.helperAvailable) as? Bool) ?? true
         isHelper = defaults.bool(forKey: Keys.helper)
+        // Los `didSet` no se disparan desde el init, así que el guard hay que
+        // llamarlo a mano: un ayudante ya persistido debe quedar corregido al
+        // arrancar aunque no haya red para `refreshHelperStatus`.
+        enforceHelperStandardVersion()
     }
 
     // MARK: - Autenticación (Supabase)
@@ -324,8 +343,14 @@ final class AppState {
     }
 
     /// Vuelve a lanzar el onboarding (asistente Wheelp) manteniendo la sesión.
+    /// Borra también el tipo de discapacidad: `RootView` se lo pasa a
+    /// `OnboardingFlowView` como `preselectedDisability`, y con un valor
+    /// presente el flujo arranca directo en `.configuring` y se salta la
+    /// encuesta. "Repetir configuración" tiene que preguntar de nuevo.
     func restartOnboarding() {
         hasCompletedOnboarding = false
+        disabilityType = nil
         defaults.set(false, forKey: Keys.onboarded)
+        defaults.removeObject(forKey: Keys.disability)
     }
 }

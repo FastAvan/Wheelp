@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		70F9851F00FCEE45AD2BA1DC /* HelpCryptoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */; };
 		AA00000000000000000000B1 /* AppStateHelperFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000A1 /* AppStateHelperFlagTests.swift */; };
+		AA00000000000000000000B2 /* AppStateOnboardingRestartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */; };
 		7D1C7BD12FEE8C0500302B3D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD02FEE8C0500302B3D /* Supabase */; };
 		7D1C7BD32FEE8C1100302B3D /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD22FEE8C1100302B3D /* Auth */; };
 		7D1C7BD52FEE8C1100302B3D /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD42FEE8C1100302B3D /* Functions */; };
@@ -82,6 +83,7 @@
 		29BF7BF86170D3D9BF14815E /* WheelpTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WheelpTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HelpCryptoTests.swift; path = HelpCryptoTests.swift; sourceTree = "<group>"; };
 		AA00000000000000000000A1 /* AppStateHelperFlagTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppStateHelperFlagTests.swift; path = AppStateHelperFlagTests.swift; sourceTree = "<group>"; };
+		AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppStateOnboardingRestartTests.swift; path = AppStateOnboardingRestartTests.swift; sourceTree = "<group>"; };
 		7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitRoutingService.swift; sourceTree = "<group>"; };
 		7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminApplicationsView.swift; sourceTree = "<group>"; };
 		7D1D46913024745A00E891DD /* AdminNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminNotifier.swift; sourceTree = "<group>"; };
@@ -250,6 +252,7 @@
 			children = (
 				69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */,
 				AA00000000000000000000A1 /* AppStateHelperFlagTests.swift */,
+				AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */,
 			);
 			name = WheelpTests;
 			path = WheelpTests;
@@ -435,6 +438,7 @@
 			files = (
 				70F9851F00FCEE45AD2BA1DC /* HelpCryptoTests.swift in Sources */,
 				AA00000000000000000000B1 /* AppStateHelperFlagTests.swift in Sources */,
+				AA00000000000000000000B2 /* AppStateOnboardingRestartTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
