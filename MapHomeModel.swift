@@ -317,11 +317,22 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
 
         /// Une ambas fuentes para un perfil concreto. Google manda en los criterios
         /// que publica; OSM rellena el resto.
+        ///
+        /// La atribución se calcula sobre los criterios que este perfil muestra de
+        /// verdad, no sobre el sitio en general: Google solo publica accesibilidad en
+        /// silla de ruedas, así que en las pestañas visual y auditiva no aporta nada
+        /// y citarlo ahí sería engañoso.
         func base(for p: AccessibilityProfile) -> (statuses: [String: DestinationAccessibility.Feature.Status], source: String?) {
-            var merged = DestinationAccessibility.osmStatuses(for: p, tags: osmTags)
-            let hadOSM = !merged.isEmpty
-            merged.merge(google.statuses) { _, fromGoogle in fromGoogle }
-            let source: String? = switch (google.found, hadOSM) {
+            let titles = Set(DestinationAccessibility.criteria(for: p.type).map(\.title))
+            let fromOSM = DestinationAccessibility.osmStatuses(for: p, tags: osmTags)
+            let fromGoogle = google.statuses.filter { titles.contains($0.key) }
+
+            var merged = fromOSM
+            merged.merge(fromGoogle) { _, google in google }
+
+            // OSM solo se cita si aporta algún criterio que Google no haya cubierto.
+            let osmAporta = fromOSM.keys.contains { !fromGoogle.keys.contains($0) }
+            let source: String? = switch (!fromGoogle.isEmpty, osmAporta) {
             case (true, true): "Google Places y OpenStreetMap"
             case (true, false): "Google Places"
             case (false, true): "OpenStreetMap"
