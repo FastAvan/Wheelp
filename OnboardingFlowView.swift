@@ -104,7 +104,15 @@ struct OnboardingFlowView: View {
         }
     }
 
+    /// Único punto de transición del flujo (voz y toque pasan por aquí).
+    /// Un ayudante verificado usa siempre la versión Estándar —no hay ayudantes
+    /// con discapacidad—, así que nunca se le pregunta el tipo: los pasos de la
+    /// encuesta se redirigen a la confirmación de modo Estándar.
     private func go(to next: Step) {
+        var next = next
+        if appState.isHelper, next == .intro || next == .chooseType {
+            next = .noDisability
+        }
         withAnimation(.easeInOut(duration: 0.35)) { step = next }
     }
 

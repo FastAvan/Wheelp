@@ -161,3 +161,34 @@ Antes de cualquier commit: revisar que no haya secrets en los archivos staged.
 
 - Hallazgo 7: suite de tests / CI
 - Hallazgo 8: directorio `supabase/migrations/` para versionar cambios de esquema/RLS
+
+### Simulador local roto en el Mac de Álvaro (2026-08-27)
+
+**Síntoma:** `xcrun simctl list` (cualquier subcomando) se cuelga indefinidamente.
+No lo arregla `killall -9 com.apple.CoreSimulator.CoreSimulatorService` — se
+recupera el servicio pero se vuelve a colgar.
+
+**Causa:** el runtime de iOS 27 está montado pero NO registrado.
+`~/Library/Logs/CoreSimulator/CoreSimulator.log` repite:
+
+```
+Unable to discover any Simulator runtimes.
+Developer Directory is /Applications/Xcode-beta.app/Contents/Developer
+```
+
+- Único Xcode instalado: `/Applications/Xcode-beta.app` (27.0).
+- `/Library/Developer/CoreSimulator/Profiles/Runtimes/` vacío.
+- Pero `/dev/disk7s1` sí montado en
+  `/Library/Developer/CoreSimulator/Volumes/iOS_24A5370g`.
+
+Probablemente se corrompió el registro cuando se llenó el disco esa mañana.
+
+**Arreglo (NO hacerlo con el disco justo):** reinstalar el runtime desde
+Xcode > Settings > Components. Son 7–10 GB de descarga, así que hace falta
+**más de 10 GB libres** antes de empezar. Desmontar la imagen actual sin
+espacio para redescargarla deja el Mac peor que ahora.
+
+**Mientras tanto:** los tests se corren en el CI de GitHub Actions
+(`.github/workflows/ci.yml`, runner `macos-26`), que sí tiene simulador.
+Ojo: el CI solo se dispara en push a `main` o PR contra `main` — empujar
+una rama suelta no lo lanza.

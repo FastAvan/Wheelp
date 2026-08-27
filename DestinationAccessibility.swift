@@ -6,7 +6,7 @@ import MapKit
 /// respaldo OpenStreetMap) y, opcionalmente, con aportaciones de la comunidad.
 struct DestinationAccessibility {
     struct Feature: Identifiable {
-        enum Status: String, CaseIterable {
+        enum Status: String, CaseIterable, Sendable {
             case available
             case limited
             case unavailable

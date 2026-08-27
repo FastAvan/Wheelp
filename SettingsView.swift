@@ -162,10 +162,13 @@ struct SettingsView: View {
         }
     }
 
+    /// Solo se pinta para no-ayudantes (ver el `if !appState.isHelper` de arriba):
+    /// un ayudante usa siempre la versión Estándar, y elegir un tipo de discapacidad
+    /// le quitaría el carrusel de accesibilidad por tipo de la ficha del destino
+    /// (`MapHomeView`), que es justo lo que necesita para asistir a otra persona.
     private var versionSection: some View {
         Section {
-            // La versión Estándar es solo para ayudantes verificados.
-            ForEach(appState.isHelper ? DisabilityType.allCases : DisabilityType.selectable) { type in
+            ForEach(DisabilityType.selectable) { type in
                 Button {
                     appState.setDisability(type)
                 } label: {
