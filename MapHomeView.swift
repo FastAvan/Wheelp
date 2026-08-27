@@ -308,7 +308,6 @@ struct MapHomeView: View {
                         Button {
                             model.query = ""
                             model.results = []
-                            model.resultScores = [:]
                             model.suggest(near: nil)
                         } label: {
                             Image(systemName: "xmark.circle.fill")
@@ -608,7 +607,6 @@ struct MapHomeView: View {
                             }
                         }
                         Spacer()
-                        searchScoreBadge(model.score(for: item))
                     }
                     .padding(.vertical, profile.largeTouchTargets ? 14 : 10)
                     .padding(.horizontal, 14)
@@ -625,33 +623,8 @@ struct MapHomeView: View {
         .wheelpCard(profile, cornerRadius: 16)
     }
 
-    @ViewBuilder
-    private func searchScoreBadge(_ score: Int?) -> some View {
-        if let score {
-            Text("\(score)%")
-                .font(.caption.bold())
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(DestinationAccessibility.scoreColor(score), in: Capsule())
-        } else {
-            Text("?")
-                .font(.caption.bold())
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.secondary, in: Capsule())
-        }
-    }
-
     private func resultAccessibilityLabel(_ item: MKMapItem) -> String {
-        var label = item.name ?? "Lugar"
-        if let score = model.score(for: item) {
-            label += ", accesibilidad \(score) por ciento"
-        } else {
-            label += ", sin datos de accesibilidad"
-        }
-        return label
+        item.name ?? "Lugar"
     }
 
     /// Favoritos y recientes, visibles al tocar el buscador vacío.

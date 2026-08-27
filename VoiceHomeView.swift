@@ -321,15 +321,6 @@ struct VoiceHomeView: View {
                             }
                         }
                         Spacer()
-                        if let score = model.score(for: item) {
-                            Text("\(score)%")
-                                .font(.headline.bold())
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(DestinationAccessibility.scoreColor(score), in: Capsule())
-                                .accessibilityLabel("Accesibilidad \(score) por ciento")
-                        }
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -954,13 +945,9 @@ struct VoiceHomeView: View {
         let top = results.prefix(5)
         var text = "He encontrado \(top.count) "
         text += top.count == 1 ? "resultado" : "resultados"
-        text += ", ordenados por accesibilidad. "
+        text += ". "
         for (index, item) in top.enumerated() {
-            text += "\(index + 1): \(item.name ?? "lugar")"
-            if let score = model.score(for: item) {
-                text += ", \(score) por ciento accesible"
-            }
-            text += ". "
+            text += "\(index + 1): \(item.name ?? "lugar"). "
         }
         text += voiceEnabled ? "Di el número o tócalo." : "Toca tu opción."
         speech.announce(text, then: then)
