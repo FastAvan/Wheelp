@@ -303,44 +303,62 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         let coordinate = item.placemark.coordinate
         let key = AccessibilityService.placeKey(for: item)
 
+        // Google y OSM se consultan SIEMPRE y en paralelo, porque cubren criterios
+        // distintos y complementarios: Google solo publica accesibilidad en silla de
+        // ruedas (entrada, aseo, aparcamiento), mientras que braille, pavimento
+        // podotáctil, audioguía o bucle magnético únicamente están en OSM. Antes OSM
+        // solo se consultaba si Google no devolvía nada, así que en cuanto un sitio
+        // tenía un dato de silla de ruedas las pestañas visual y auditiva se quedaban
+        // vacías para siempre.
+        async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
+        async let osmResult = OSMAccessibilityService.fetchTags(near: coordinate, name: item.name)
+        let google = await googleResult
+        let osmTags = await osmResult
+
+        /// Une ambas fuentes para un perfil concreto. Google manda en los criterios
+        /// que publica; OSM rellena el resto.
+        ///
+        /// La atribución se calcula sobre los criterios que este perfil muestra de
+        /// verdad, no sobre el sitio en general: Google solo publica accesibilidad en
+        /// silla de ruedas, así que en las pestañas visual y auditiva no aporta nada
+        /// y citarlo ahí sería engañoso.
+        func base(for p: AccessibilityProfile) -> (statuses: [String: DestinationAccessibility.Feature.Status], source: String?) {
+            let titles = Set(DestinationAccessibility.criteria(for: p.type).map(\.title))
+            let fromOSM = DestinationAccessibility.osmStatuses(for: p, tags: osmTags)
+            let fromGoogle = google.statuses.filter { titles.contains($0.key) }
+
+            var merged = fromOSM
+            merged.merge(fromGoogle) { _, google in google }
+
+            // OSM solo se cita si aporta algún criterio que Google no haya cubierto.
+            let osmAporta = fromOSM.keys.contains { !fromGoogle.keys.contains($0) }
+            let source: String? = switch (!fromGoogle.isEmpty, osmAporta) {
+            case (true, true): "Google Places y OpenStreetMap"
+            case (true, false): "Google Places"
+            case (false, true): "OpenStreetMap"
+            case (false, false): nil
+            }
+            return (merged, source)
+        }
+
         // Helpers ven accesibilidad por cada tipo de discapacidad en carrusel.
         if profile.type == .none {
-            async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
-            let google = await googleResult
-            var base = google.statuses
-            var sourceName: String? = google.found ? "Google Places" : nil
-
-            if base.isEmpty {
-                let osmTags = await OSMAccessibilityService.fetchTags(near: coordinate, name: item.name)
-                if !osmTags.isEmpty { sourceName = "OpenStreetMap" }
-                // OSM tags se interpretan por tipo más abajo
+            await withTaskGroup(of: (DisabilityType, DestinationAccessibility).self) { group in
                 for type in DisabilityType.selectable {
-                    let osmStatuses = DestinationAccessibility.osmStatuses(
-                        for: AccessibilityProfile.make(for: type), tags: osmTags)
-                    let reports = (try? await AccessibilityService.fetchReports(
-                        placeKey: key, disabilityType: type)) ?? []
-                    let acc = DestinationAccessibility.combined(
-                        base: osmStatuses, sourceName: sourceName, reports: reports,
-                        profile: AccessibilityProfile.make(for: type))
-                    guard previewItem === item else { return }
-                    previewAccessibilityByType[type] = acc
+                    let typeProfile = AccessibilityProfile.make(for: type)
+                    let (statuses, source) = base(for: typeProfile)
+                    group.addTask {
+                        let reports = (try? await AccessibilityService.fetchReports(
+                            placeKey: key, disabilityType: type)) ?? []
+                        let acc = DestinationAccessibility.combined(
+                            base: statuses, sourceName: source, reports: reports,
+                            profile: typeProfile)
+                        return (type, acc)
+                    }
                 }
-            } else {
-                await withTaskGroup(of: (DisabilityType, DestinationAccessibility).self) { group in
-                    for type in DisabilityType.selectable {
-                        group.addTask {
-                            let reports = (try? await AccessibilityService.fetchReports(
-                                placeKey: key, disabilityType: type)) ?? []
-                            let acc = DestinationAccessibility.combined(
-                                base: base, sourceName: sourceName, reports: reports,
-                                profile: AccessibilityProfile.make(for: type))
-                            return (type, acc)
-                        }
-                    }
-                    for await (type, acc) in group {
-                        guard self.previewItem === item else { return }
-                        self.previewAccessibilityByType[type] = acc
-                    }
+                for await (type, acc) in group {
+                    guard self.previewItem === item else { return }
+                    self.previewAccessibilityByType[type] = acc
                 }
             }
             guard previewItem === item else { return }
@@ -349,28 +367,15 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
 
         // Usuarios con discapacidad: accesibilidad para su propio perfil.
-        async let googleResult = GooglePlacesAccessibilityService.fetch(near: coordinate, name: item.name)
         let reports = (try? await AccessibilityService.fetchReports(
             placeKey: key,
             disabilityType: profile.type
         )) ?? []
-
-        let google = await googleResult
-        var base = google.statuses
-        var sourceName: String? = google.found ? "Google Places" : nil
-
-        if base.isEmpty {
-            let osmTags = await OSMAccessibilityService.fetchTags(near: coordinate, name: item.name)
-            let osmStatuses = DestinationAccessibility.osmStatuses(for: profile, tags: osmTags)
-            if !osmStatuses.isEmpty {
-                base = osmStatuses
-                sourceName = "OpenStreetMap"
-            }
-        }
+        let (statuses, source) = base(for: profile)
 
         let accessibility = DestinationAccessibility.combined(
-            base: base,
-            sourceName: sourceName,
+            base: statuses,
+            sourceName: source,
             reports: reports,
             profile: profile
         )
