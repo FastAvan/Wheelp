@@ -48,7 +48,13 @@ struct MapHomeView: View {
         mappedWithObservers
             .onChange(of: location.lastLocation) { _, newLocation in
                 guard let newLocation else { return }
-                model.updateProgress(newLocation)
+                // A pie y transporte tienen geometrías distintas (MKRoute.Step vs
+                // tramos de Google), así que cada uno lleva su propio avance.
+                if model.transitItinerary != nil {
+                    model.updateTransitProgress(newLocation)
+                } else {
+                    model.updateProgress(newLocation)
+                }
                 model.checkObstacles(at: newLocation, for: profile.type)
                 model.checkTransitProximity(at: newLocation, isVisualProfile: profile.type == .visual)
                 if appState.isHelper && appState.isHelperAvailable { Task { await HelperService.updateHelperLocation(newLocation) } }
@@ -1107,45 +1113,121 @@ struct MapHomeView: View {
                     .accessibilityLabel("Cerrar ruta")
                 }
 
+                if model.isNavigating { transitProgressHeader }
+
                 Divider()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(itinerary.legs) { leg in
-                        HStack(alignment: .top, spacing: 10) {
-                            Text(leg.vehicleEmoji)
-                                .font(.title3)
-                                .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 2) {
-                                if let line = leg.lineName ?? leg.lineShort {
-                                    Text(line)
-                                        .font(profile.bodyFont.bold())
-                                }
-                                Text(leg.instruction)
-                                    .font(profile.bodyFont)
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                if let dep = leg.departureStop, let arr = leg.arrivalStop {
-                                    Text("\(dep) → \(arr)")
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            if leg.durationSeconds > 0 {
-                                Text("\(max(1, leg.durationSeconds / 60)) min")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                    ForEach(Array(itinerary.legs.enumerated()), id: \.element.id) { index, leg in
+                        transitLegRow(leg, at: index)
                     }
                 }
+
+                transitNavigationButton
             }
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .wheelpCard(profile)
+        // Nota: transitCard va troceado en sub-vistas a propósito. En una sola
+        // expresión el type-checker de Swift se rendía ("unable to type-check in
+        // reasonable time") en el runner de CI, aunque compilara en local.
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    /// Cabecera con el tramo en curso y la distancia que falta para acabarlo.
+    private var transitProgressHeader: some View {
+        let meters: CLLocationDistance? = model.distanceToLegEnd(from: location.lastLocation)
+        let distanceText: String? = meters.map { m in
+            m < 1000 ? "a \(Int(m.rounded())) m" : String(format: "a %.1f km", m / 1000)
+        }
+        return HStack {
+            Text(model.legProgressText)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+            if let distanceText {
+                Text(distanceText)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(Color.wheelpGreen)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func transitLegRow(_ leg: TransitItinerary.Leg, at index: Int) -> some View {
+        let isCurrent: Bool = model.isNavigating && index == model.currentLegIndex
+        let isDone: Bool = model.isNavigating && index < model.currentLegIndex
+        let line: String? = leg.lineName ?? leg.lineShort
+        let stops: String? = {
+            guard let dep = leg.departureStop, let arr = leg.arrivalStop else { return nil }
+            return "\(dep) → \(arr)"
+        }()
+        let prefix: String = isCurrent ? "Tramo actual. " : (isDone ? "Completado. " : "")
+
+        HStack(alignment: .top, spacing: 10) {
+            Text(leg.vehicleEmoji)
+                .font(.title3)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                if let line {
+                    Text(line).font(profile.bodyFont.bold())
+                }
+                Text(leg.instruction)
+                    .font(profile.bodyFont)
+                    .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .fixedSize(horizontal: false, vertical: true)
+                if let stops {
+                    Text(stops).font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if isDone {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(Color.wheelpGreen)
+            } else if leg.durationSeconds > 0 {
+                Text("\(max(1, leg.durationSeconds / 60)) min")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .opacity(isDone ? 0.5 : 1)
+        .padding(.vertical, isCurrent ? 8 : 0)
+        .padding(.horizontal, isCurrent ? 10 : 0)
+        .background {
+            if isCurrent {
+                RoundedRectangle(cornerRadius: 10).fill(Color.wheelpGreen.opacity(0.12))
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(prefix + (line ?? "") + " " + leg.instruction)
+    }
+
+    @ViewBuilder
+    private var transitNavigationButton: some View {
+        if model.isNavigating {
+            Button {
+                withAnimation {
+                    if model.isLastLeg {
+                        model.stopNavigation()
+                        model.reset()
+                    } else {
+                        model.advanceLeg()
+                    }
+                }
+            } label: {
+                Text(model.isLastLeg ? "He llegado" : "Siguiente tramo")
+            }
+            .buttonStyle(.wheelpPrimary)
+        } else {
+            Button {
+                withAnimation { model.startTransitNavigation() }
+            } label: {
+                Label("Empezar", systemImage: "location.fill")
+            }
+            .buttonStyle(.wheelpPrimary)
+        }
     }
 
     // MARK: Tarjeta de ruta

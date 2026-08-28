@@ -17,6 +17,18 @@ struct TransitItinerary {
         let arrivalStop: String?
         /// Coordenada de la parada de salida (nil para tramos a pie).
         let departureStopCoordinate: CLLocationCoordinate2D?
+        /// Coordenada de la parada de llegada (nil para tramos a pie).
+        let arrivalStopCoordinate: CLLocationCoordinate2D?
+        /// Geometría del tramo, decodificada de la polilínea de Google. Permite
+        /// seguir el avance por GPS también en los tramos a pie, donde no hay
+        /// paradas a las que agarrarse.
+        let path: [CLLocationCoordinate2D]
+
+        /// Punto donde termina este tramo: la parada de llegada si es transporte,
+        /// o el final de la geometría si se va a pie.
+        var endCoordinate: CLLocationCoordinate2D? {
+            arrivalStopCoordinate ?? path.last
+        }
     }
 
     let legs: [Leg]
@@ -26,6 +38,45 @@ struct TransitItinerary {
         let minutes = max(1, (totalDurationSeconds + 59) / 60)
         if minutes < 60 { return "\(minutes) min" }
         return "\(minutes / 60) h \(minutes % 60) min"
+    }
+}
+
+/// Decodifica el formato de polilínea codificada de Google (mismo algoritmo que
+/// usan Directions y Routes). Devuelve [] si la cadena está corrupta.
+enum GooglePolyline {
+    static func decode(_ encoded: String) -> [CLLocationCoordinate2D] {
+        var coordinates: [CLLocationCoordinate2D] = []
+        var index = encoded.startIndex
+        var lat = 0, lng = 0
+
+        while index < encoded.endIndex {
+            // Cada valor va codificado en grupos de 5 bits con acarreo en el bit 6,
+            // en zig-zag y como delta respecto al punto anterior.
+            func nextValue() -> Int? {
+                var shift = 0, result = 0
+                while index < encoded.endIndex {
+                    guard let ascii = encoded[index].asciiValue else { return nil }
+                    let byte = Int(ascii) - 63
+                    guard byte >= 0 else { return nil }
+                    index = encoded.index(after: index)
+                    result |= (byte & 0x1F) << shift
+                    shift += 5
+                    if byte < 0x20 {
+                        return (result & 1) != 0 ? ~(result >> 1) : (result >> 1)
+                    }
+                    if shift > 30 { return nil }
+                }
+                return nil
+            }
+            guard let dLat = nextValue(), let dLng = nextValue() else { break }
+            lat += dLat
+            lng += dLng
+            coordinates.append(CLLocationCoordinate2D(
+                latitude: Double(lat) / 1e5,
+                longitude: Double(lng) / 1e5
+            ))
+        }
+        return coordinates
     }
 }
 
@@ -84,6 +135,10 @@ private struct RoutesAPIResponse: Decodable {
         let staticDuration: String?
         let navigationInstruction: NavInstruction?
         let transitDetails: TransitDetails?
+        let polyline: Polyline?
+    }
+    struct Polyline: Decodable {
+        let encodedPolyline: String?
     }
     struct NavInstruction: Decodable {
         let instructions: String?
@@ -136,10 +191,12 @@ private struct RoutesAPIResponse: Decodable {
             }
             let instruction = step.navigationInstruction?.instructions
                 ?? (isTransit ? "Toma el transporte" : "Camina")
-            let depLatLng = step.transitDetails?.stopDetails?.departureStop?.location?.latLng
-            let depCoord: CLLocationCoordinate2D? = depLatLng.map {
-                CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+            func coordinate(_ stop: Stop?) -> CLLocationCoordinate2D? {
+                stop?.location?.latLng.map {
+                    CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                }
             }
+            let stops = step.transitDetails?.stopDetails
             return TransitItinerary.Leg(
                 mode: isTransit ? .transit : .walk,
                 durationSeconds: parseDuration(step.staticDuration) ?? 0,
@@ -148,9 +205,11 @@ private struct RoutesAPIResponse: Decodable {
                 vehicleEmoji: vehicleEmoji,
                 lineName: step.transitDetails?.transitLine?.name,
                 lineShort: step.transitDetails?.transitLine?.nameShort,
-                departureStop: step.transitDetails?.stopDetails?.departureStop?.name,
-                arrivalStop: step.transitDetails?.stopDetails?.arrivalStop?.name,
-                departureStopCoordinate: depCoord
+                departureStop: stops?.departureStop?.name,
+                arrivalStop: stops?.arrivalStop?.name,
+                departureStopCoordinate: coordinate(stops?.departureStop),
+                arrivalStopCoordinate: coordinate(stops?.arrivalStop),
+                path: step.polyline?.encodedPolyline.map(GooglePolyline.decode) ?? []
             )
         }
         guard !legs.isEmpty else { return nil }
