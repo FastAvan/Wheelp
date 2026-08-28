@@ -18,6 +18,9 @@ const FIELD_MASK = [
   "routes.duration",
   "routes.legs.steps.transitDetails.stopDetails.departureStop.location",
   "routes.legs.steps.transitDetails.stopDetails.arrivalStop.location",
+  // La geometría de cada tramo permite seguir el avance por GPS igual que en
+  // la navegación a pie; sin ella solo se puede progresar de parada a parada.
+  "routes.legs.steps.polyline.encodedPolyline",
 ].join(",");
 
 function json(body: unknown, status = 200) {

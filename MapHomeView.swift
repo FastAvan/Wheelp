@@ -48,7 +48,13 @@ struct MapHomeView: View {
         mappedWithObservers
             .onChange(of: location.lastLocation) { _, newLocation in
                 guard let newLocation else { return }
-                model.updateProgress(newLocation)
+                // A pie y transporte tienen geometrías distintas (MKRoute.Step vs
+                // tramos de Google), así que cada uno lleva su propio avance.
+                if model.transitItinerary != nil {
+                    model.updateTransitProgress(newLocation)
+                } else {
+                    model.updateProgress(newLocation)
+                }
                 model.checkObstacles(at: newLocation, for: profile.type)
                 model.checkTransitProximity(at: newLocation, isVisualProfile: profile.type == .visual)
                 if appState.isHelper && appState.isHelperAvailable { Task { await HelperService.updateHelperLocation(newLocation) } }
@@ -1107,10 +1113,28 @@ struct MapHomeView: View {
                     .accessibilityLabel("Cerrar ruta")
                 }
 
+                if model.isNavigating {
+                    HStack {
+                        Text(model.legProgressText)
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        if let meters = model.distanceToLegEnd(from: location.lastLocation) {
+                            Text(meters < 1000
+                                 ? "a \(Int(meters.rounded())) m"
+                                 : String(format: "a %.1f km", meters / 1000))
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(Color.wheelpGreen)
+                        }
+                    }
+                }
+
                 Divider()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(itinerary.legs) { leg in
+                    ForEach(Array(itinerary.legs.enumerated()), id: \.element.id) { index, leg in
+                        let isCurrent = model.isNavigating && index == model.currentLegIndex
+                        let isDone = model.isNavigating && index < model.currentLegIndex
                         HStack(alignment: .top, spacing: 10) {
                             Text(leg.vehicleEmoji)
                                 .font(.title3)
@@ -1122,7 +1146,7 @@ struct MapHomeView: View {
                                 }
                                 Text(leg.instruction)
                                     .font(profile.bodyFont)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(isCurrent ? .primary : .secondary)
                                     .fixedSize(horizontal: false, vertical: true)
                                 if let dep = leg.departureStop, let arr = leg.arrivalStop {
                                     Text("\(dep) → \(arr)")
@@ -1131,13 +1155,49 @@ struct MapHomeView: View {
                                 }
                             }
                             Spacer()
-                            if leg.durationSeconds > 0 {
+                            if isDone {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.wheelpGreen)
+                            } else if leg.durationSeconds > 0 {
                                 Text("\(max(1, leg.durationSeconds / 60)) min")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        .opacity(isDone ? 0.5 : 1)
+                        .padding(.vertical, isCurrent ? 8 : 0)
+                        .padding(.horizontal, isCurrent ? 10 : 0)
+                        .background {
+                            if isCurrent {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.wheelpGreen.opacity(0.12))
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(
+                            (isCurrent ? "Tramo actual. " : isDone ? "Completado. " : "")
+                            + (leg.lineName ?? leg.lineShort ?? "") + " " + leg.instruction
+                        )
                     }
+                }
+
+                if model.isNavigating {
+                    Button {
+                        withAnimation {
+                            if model.isLastLeg { model.stopNavigation(); model.reset() }
+                            else { model.advanceLeg() }
+                        }
+                    } label: {
+                        Text(model.isLastLeg ? "He llegado" : "Siguiente tramo")
+                    }
+                    .buttonStyle(.wheelpPrimary)
+                } else {
+                    Button {
+                        withAnimation { model.startTransitNavigation() }
+                    } label: {
+                        Label("Empezar", systemImage: "location.fill")
+                    }
+                    .buttonStyle(.wheelpPrimary)
                 }
             }
         }

@@ -646,6 +646,7 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         cancelTransitAlerts()
         route = nil
         transitItinerary = nil
+        currentLegIndex = 0
         travelMode = .walking
         destination = nil
         previewItem = nil
@@ -685,6 +686,93 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
 
     func advanceStep() {
         if currentStepIndex < steps.count - 1 { currentStepIndex += 1 }
+    }
+
+    // MARK: Navegación en transporte público
+
+    /// Tramo del itinerario que el usuario está recorriendo ahora.
+    var currentLegIndex = 0
+
+    var currentLeg: TransitItinerary.Leg? {
+        guard let legs = transitItinerary?.legs, legs.indices.contains(currentLegIndex) else { return nil }
+        return legs[currentLegIndex]
+    }
+    var isLastLeg: Bool {
+        guard let legs = transitItinerary?.legs, !legs.isEmpty else { return true }
+        return currentLegIndex >= legs.count - 1
+    }
+    var legProgressText: String {
+        guard let legs = transitItinerary?.legs, !legs.isEmpty else { return "" }
+        return "Tramo \(currentLegIndex + 1) de \(legs.count)"
+    }
+
+    func startTransitNavigation() {
+        guard let legs = transitItinerary?.legs, !legs.isEmpty else { return }
+        currentLegIndex = 0
+        lastPaceLocation = nil
+        isNavigating = true
+    }
+
+    func advanceLeg() {
+        guard let legs = transitItinerary?.legs else { return }
+        if currentLegIndex < legs.count - 1 { currentLegIndex += 1 }
+    }
+
+    /// Avance por GPS dentro del itinerario de transporte. Mismo criterio que la
+    /// navegación a pie: se pasa al siguiente tramo al alcanzar el punto final del
+    /// actual, con un margen proporcional a la precisión del GPS.
+    ///
+    /// Los tramos en vehículo usan la parada de llegada; los tramos a pie, el final
+    /// de su polilínea. También se mira un par de tramos por delante, porque en
+    /// metro se pierde la señal y al recuperarla puedes estar ya dos tramos más allá.
+    func updateTransitProgress(_ location: CLLocation) {
+        guard isNavigating, let legs = transitItinerary?.legs, !isLastLeg else { return }
+
+        let accuracy = location.horizontalAccuracy
+        guard accuracy > 0, accuracy <= 65,
+              location.timestamp.timeIntervalSinceNow > -15 else { return }
+
+        // Umbral más generoso que a pie: las paradas son grandes y la posición
+        // publicada por Google es la del centro del andén o de la marquesina.
+        let arrivalThreshold = min(max(35, accuracy * 1.5), 90)
+        let lookahead = min(currentLegIndex + 2, legs.count - 1)
+
+        for index in (currentLegIndex...lookahead).reversed() {
+            guard let end = legs[index].endCoordinate else { continue }
+            let target = CLLocation(latitude: end.latitude, longitude: end.longitude)
+            if location.distance(from: target) < arrivalThreshold {
+                currentLegIndex = min(index + 1, legs.count - 1)
+                return
+            }
+        }
+
+        // Si no se ha llegado al final de ningún tramo, comprobar si ya se está
+        // recorriendo uno posterior (típico al salir del metro sin señal).
+        guard currentLegIndex < lookahead else { return }
+        for index in ((currentLegIndex + 1)...lookahead).reversed() {
+            let path = legs[index].path
+            guard !path.isEmpty else { continue }
+            if Self.distance(from: location, toPath: path) < arrivalThreshold {
+                currentLegIndex = index
+                return
+            }
+        }
+    }
+
+    /// Distancia al punto donde termina el tramo actual.
+    func distanceToLegEnd(from location: CLLocation?) -> CLLocationDistance? {
+        guard let location, let end = currentLeg?.endCoordinate else { return nil }
+        return location.distance(from: CLLocation(latitude: end.latitude, longitude: end.longitude))
+    }
+
+    /// Distancia mínima de un punto a una polilínea suelta de coordenadas.
+    private static func distance(from location: CLLocation, toPath path: [CLLocationCoordinate2D]) -> CLLocationDistance {
+        var best = CLLocationDistance.greatestFiniteMagnitude
+        for coordinate in path {
+            let d = location.distance(from: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude))
+            if d < best { best = d }
+        }
+        return best
     }
 
     /// Avanza automáticamente según la posición del usuario.
