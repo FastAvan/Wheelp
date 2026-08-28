@@ -46,7 +46,11 @@ enum GooglePlacesAccessibilityService {
         if let cached = await cache.value(for: key) { return cached }
 
         do {
-            let data: Data = try await supabase.functions.invoke(
+            // OJO: no pedir `Data` a invoke(). `Data` conforma a Decodable, así que el
+            // compilador elige la sobrecarga genérica e intenta decodificar el JSON
+            // como un Data en base64 — lanza siempre. Hay que decodificar directamente
+            // al tipo de respuesta, o usar la sobrecarga con `decode:`.
+            let response: PlacesResponse = try await supabase.functions.invoke(
                 "google-places",
                 options: .init(body: EdgeRequest(
                     name: name,
@@ -54,7 +58,6 @@ enum GooglePlacesAccessibilityService {
                     longitude: coordinate.longitude
                 ))
             )
-            let response = try JSONDecoder().decode(PlacesResponse.self, from: data)
             // `places == nil` es un error del servidor (429, 502…), no un "sin datos":
             // no se cachea para que el siguiente intento vuelva a preguntar.
             guard let places = response.places else { return Result(statuses: [:], found: false) }
@@ -63,6 +66,9 @@ enum GooglePlacesAccessibilityService {
             await cache.store(result, for: key)
             return result
         } catch {
+            // Sin este log, un fallo de decodificación es indistinguible de "el sitio
+            // no tiene datos" y puede pasar semanas sin detectarse.
+            print("[Wheelp] google-places falló para \(name): \(error)")
             return Result(statuses: [:], found: false)
         }
     }
