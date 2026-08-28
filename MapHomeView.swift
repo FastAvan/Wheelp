@@ -156,12 +156,14 @@ struct MapHomeView: View {
                 }
             }
             .sheet(item: $finishedContribution) { target in
+                // El ayudante no tiene discapacidad propia, pero acaba de recorrer
+                // el sitio y puede informar de las tres. Un usuario con
+                // discapacidad aporta solo sobre la suya.
                 ContributeAccessibilityView(
-                    profile: profile,
                     placeName: target.item.name ?? "este lugar",
-                    initial: [:]
-                ) { features in
-                    Task { await model.submitContribution(for: target.item, features, profile: profile) }
+                    types: appState.isHelper ? DisabilityType.selectable : [profile.type]
+                ) { byType in
+                    Task { await model.submitContributions(for: target.item, byType) }
                 }
             }
             .sheet(item: $pendingHelperRating) { ratingTarget in
@@ -215,6 +217,48 @@ struct MapHomeView: View {
             .eraseToAnyView()
     }
 
+    /// Trazado del itinerario de transporte sobre el mapa: los tramos a pie van
+    /// discontinuos y los de vehículo continuos y más gruesos, para que se
+    /// distingan de un vistazo. Durante la navegación el tramo actual se pinta a
+    /// plena opacidad y los ya recorridos se atenúan.
+    @MapContentBuilder
+    private var transitOverlays: some MapContent {
+        if let legs = model.transitItinerary?.legs {
+            ForEach(Array(legs.enumerated()), id: \.element.id) { index, leg in
+                let isDone = model.isNavigating && index < model.currentLegIndex
+                let isCurrent = model.isNavigating && index == model.currentLegIndex
+                let color: Color = leg.mode == .transit ? .blue : Color.wheelpGreen
+                let width: CGFloat = leg.mode == .transit
+                    ? profile.routeLineWidth + 2
+                    : profile.routeLineWidth
+
+                MapPolyline(coordinates: leg.path)
+                    .stroke(
+                        color.opacity(isDone ? 0.25 : (isCurrent || !model.isNavigating ? 1 : 0.5)),
+                        style: StrokeStyle(
+                            lineWidth: width,
+                            lineCap: .round,
+                            lineJoin: .round,
+                            dash: leg.mode == .walk ? [2, 8] : []
+                        )
+                    )
+            }
+            // Paradas: dónde subir y dónde bajar de cada vehículo.
+            ForEach(Array(legs.enumerated()), id: \.element.id) { _, leg in
+                if leg.mode == .transit {
+                    if let stop = leg.departureStopCoordinate, let name = leg.departureStop {
+                        Marker("Sube: \(name)", systemImage: "arrow.up.circle.fill", coordinate: stop)
+                            .tint(.blue)
+                    }
+                    if let stop = leg.arrivalStopCoordinate, let name = leg.arrivalStop {
+                        Marker("Baja: \(name)", systemImage: "arrow.down.circle.fill", coordinate: stop)
+                            .tint(.purple)
+                    }
+                }
+            }
+        }
+    }
+
     // El mapa base: marcadores, controles y paneles (sin hojas ni tareas).
     private var coreMap: some View {
         Map(position: $camera, selection: $selectedFeature) {
@@ -224,6 +268,7 @@ struct MapHomeView: View {
                 MapPolyline(route.polyline)
                     .stroke(Color.wheelpGreen, lineWidth: profile.routeLineWidth)
             }
+            transitOverlays
             if let item = model.focusedItem {
                 Marker(item.name ?? "Destino", coordinate: item.placemark.coordinate)
                     .tint(Color.wheelpGreen)
@@ -1159,49 +1204,155 @@ struct MapHomeView: View {
     private func transitLegRow(_ leg: TransitItinerary.Leg, at index: Int) -> some View {
         let isCurrent: Bool = model.isNavigating && index == model.currentLegIndex
         let isDone: Bool = model.isNavigating && index < model.currentLegIndex
-        let line: String? = leg.lineName ?? leg.lineShort
-        let stops: String? = {
-            guard let dep = leg.departureStop, let arr = leg.arrivalStop else { return nil }
-            return "\(dep) → \(arr)"
-        }()
-        let prefix: String = isCurrent ? "Tramo actual. " : (isDone ? "Completado. " : "")
 
-        HStack(alignment: .top, spacing: 10) {
-            Text(leg.vehicleEmoji)
-                .font(.title3)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                if let line {
-                    Text(line).font(profile.bodyFont.bold())
-                }
-                Text(leg.instruction)
-                    .font(profile.bodyFont)
-                    .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                    .fixedSize(horizontal: false, vertical: true)
-                if let stops {
-                    Text(stops).font(.footnote).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if isDone {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.wheelpGreen)
-            } else if leg.durationSeconds > 0 {
-                Text("\(max(1, leg.durationSeconds / 60)) min")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            if leg.mode == .transit {
+                transitVehicleHeader(leg)
+                transitStopsDetail(leg)
+            } else {
+                walkLegDetail(leg)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .opacity(isDone ? 0.5 : 1)
-        .padding(.vertical, isCurrent ? 8 : 0)
-        .padding(.horizontal, isCurrent ? 10 : 0)
+        .padding(isCurrent ? 12 : 0)
         .background {
             if isCurrent {
-                RoundedRectangle(cornerRadius: 10).fill(Color.wheelpGreen.opacity(0.12))
+                RoundedRectangle(cornerRadius: 12).fill(Color.wheelpGreen.opacity(0.12))
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(prefix + (line ?? "") + " " + leg.instruction)
+        .accessibilityLabel(transitLegLabel(leg, isCurrent: isCurrent, isDone: isDone))
+    }
+
+    /// Qué vehículo hay que coger: distintivo con el color oficial de la línea,
+    /// tipo y sentido rotulado, que es lo que se lee en la marquesina.
+    @ViewBuilder
+    private func transitVehicleHeader(_ leg: TransitItinerary.Leg) -> some View {
+        HStack(spacing: 10) {
+            if let badge = leg.lineBadge {
+                Text(badge)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(leg.lineTextColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(leg.lineColor, in: RoundedRectangle(cornerRadius: 7))
+            } else {
+                Text(leg.vehicleEmoji).font(.title3)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(leg.boardingSummary)
+                    .font(profile.bodyFont.bold())
+                    .fixedSize(horizontal: false, vertical: true)
+                if let agency = leg.agencyName {
+                    Text(agency).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 4)
+        }
+    }
+
+    /// Dónde subir y dónde bajar, con hora y cuántas paradas aguantar.
+    @ViewBuilder
+    private func transitStopsDetail(_ leg: TransitItinerary.Leg) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let stop = leg.departureStop {
+                transitStopRow(
+                    icon: "arrow.up.circle.fill", tint: .blue, verb: "Sube en",
+                    stop: stop, time: leg.departureTimeText,
+                    coordinate: leg.departureStopCoordinate
+                )
+            }
+            if let stop = leg.arrivalStop {
+                transitStopRow(
+                    icon: "arrow.down.circle.fill", tint: .purple, verb: "Baja en",
+                    stop: stop, time: leg.arrivalTimeText,
+                    coordinate: leg.arrivalStopCoordinate, trailing: leg.stopCountText
+                )
+            }
+        }
+        .padding(.leading, 2)
+    }
+
+    /// Fila de parada. Al tocarla el mapa se centra en ella: es la forma más
+    /// directa de responder "y esa parada dónde está exactamente".
+    @ViewBuilder
+    private func transitStopRow(
+        icon: String, tint: Color, verb: String, stop: String,
+        time: String?, coordinate: CLLocationCoordinate2D?, trailing: String? = nil
+    ) -> some View {
+        Button {
+            guard let coordinate else { return }
+            withAnimation(.easeInOut) {
+                camera = .region(MKCoordinateRegion(
+                    center: coordinate,
+                    latitudinalMeters: 300,
+                    longitudinalMeters: 300
+                ))
+            }
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: icon).foregroundStyle(tint).font(.footnote)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verb).font(.caption2).foregroundStyle(.secondary)
+                    Text(stop)
+                        .font(profile.bodyFont)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let trailing {
+                        Text(trailing).font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 4)
+                if let time {
+                    Text(time).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(coordinate == nil)
+    }
+
+    @ViewBuilder
+    private func walkLegDetail(_ leg: TransitItinerary.Leg) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(leg.vehicleEmoji).font(.title3).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(leg.instruction)
+                    .font(profile.bodyFont)
+                    .fixedSize(horizontal: false, vertical: true)
+                if leg.distanceMeters > 0 {
+                    Text("\(leg.distanceMeters) m").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 4)
+            if leg.durationSeconds > 0 {
+                Text("\(max(1, leg.durationSeconds / 60)) min")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func transitLegLabel(_ leg: TransitItinerary.Leg, isCurrent: Bool, isDone: Bool) -> String {
+        var text = isCurrent ? "Tramo actual. " : (isDone ? "Completado. " : "")
+        if leg.mode == .transit {
+            text += leg.boardingSummary + ". "
+            if let stop = leg.departureStop {
+                text += "Sube en \(stop)"
+                if let time = leg.departureTimeText { text += " a las \(time)" }
+                text += ". "
+            }
+            if let stop = leg.arrivalStop {
+                text += "Baja en \(stop)"
+                if let count = leg.stopCountText { text += ", \(count)" }
+                if let time = leg.arrivalTimeText { text += ", a las \(time)" }
+                text += "."
+            }
+        } else {
+            text += leg.instruction
+            if leg.distanceMeters > 0 { text += ", \(leg.distanceMeters) metros" }
+        }
+        return text
     }
 
     @ViewBuilder
@@ -1432,6 +1583,11 @@ struct MapHomeView: View {
     private func handleTransitItineraryChange() {
         Task { await NotificationService.requestPermission() }
         model.scheduleTransitAlerts()
+        // Encuadrar el itinerario completo, igual que se hace con la ruta a pie.
+        if let rect = model.transitBoundingRect() {
+            headingUp = false
+            withAnimation(.easeInOut) { camera = .rect(rect) }
+        }
     }
 
     private func announceTransitAlert(_ msg: String?) {
