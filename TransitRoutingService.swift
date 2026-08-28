@@ -45,7 +45,11 @@ enum TransitRoutingService {
         guard GooglePlacesConfig.isConfigured else { return nil }
 
         do {
-            let data: Data = try await supabase.functions.invoke(
+            // OJO: no pedir `Data` a invoke(). `Data` conforma a Decodable, así que el
+            // compilador elige la sobrecarga genérica e intenta decodificar el JSON
+            // como un Data en base64 — lanza siempre. Hay que decodificar directamente
+            // al tipo de respuesta, o usar la sobrecarga con `decode:`.
+            let response: RoutesAPIResponse = try await supabase.functions.invoke(
                 "google-routes",
                 options: .init(body: EdgeRequest(
                     originLat: origin.latitude,
@@ -54,9 +58,9 @@ enum TransitRoutingService {
                     destLng: destination.longitude
                 ))
             )
-            let response = try JSONDecoder().decode(RoutesAPIResponse.self, from: data)
             return response.toItinerary()
         } catch {
+            print("[Wheelp] google-routes falló: \(error)")
             return nil
         }
     }
