@@ -215,6 +215,48 @@ struct MapHomeView: View {
             .eraseToAnyView()
     }
 
+    /// Trazado del itinerario de transporte sobre el mapa: los tramos a pie van
+    /// discontinuos y los de vehículo continuos y más gruesos, para que se
+    /// distingan de un vistazo. Durante la navegación el tramo actual se pinta a
+    /// plena opacidad y los ya recorridos se atenúan.
+    @MapContentBuilder
+    private var transitOverlays: some MapContent {
+        if let legs = model.transitItinerary?.legs {
+            ForEach(Array(legs.enumerated()), id: \.element.id) { index, leg in
+                let isDone = model.isNavigating && index < model.currentLegIndex
+                let isCurrent = model.isNavigating && index == model.currentLegIndex
+                let color: Color = leg.mode == .transit ? .blue : Color.wheelpGreen
+                let width: CGFloat = leg.mode == .transit
+                    ? profile.routeLineWidth + 2
+                    : profile.routeLineWidth
+
+                MapPolyline(coordinates: leg.path)
+                    .stroke(
+                        color.opacity(isDone ? 0.25 : (isCurrent || !model.isNavigating ? 1 : 0.5)),
+                        style: StrokeStyle(
+                            lineWidth: width,
+                            lineCap: .round,
+                            lineJoin: .round,
+                            dash: leg.mode == .walk ? [2, 8] : []
+                        )
+                    )
+            }
+            // Paradas: dónde subir y dónde bajar de cada vehículo.
+            ForEach(Array(legs.enumerated()), id: \.element.id) { _, leg in
+                if leg.mode == .transit {
+                    if let stop = leg.departureStopCoordinate, let name = leg.departureStop {
+                        Marker("Sube: \(name)", systemImage: "arrow.up.circle.fill", coordinate: stop)
+                            .tint(.blue)
+                    }
+                    if let stop = leg.arrivalStopCoordinate, let name = leg.arrivalStop {
+                        Marker("Baja: \(name)", systemImage: "arrow.down.circle.fill", coordinate: stop)
+                            .tint(.purple)
+                    }
+                }
+            }
+        }
+    }
+
     // El mapa base: marcadores, controles y paneles (sin hojas ni tareas).
     private var coreMap: some View {
         Map(position: $camera, selection: $selectedFeature) {
@@ -224,6 +266,7 @@ struct MapHomeView: View {
                 MapPolyline(route.polyline)
                     .stroke(Color.wheelpGreen, lineWidth: profile.routeLineWidth)
             }
+            transitOverlays
             if let item = model.focusedItem {
                 Marker(item.name ?? "Destino", coordinate: item.placemark.coordinate)
                     .tint(Color.wheelpGreen)
@@ -1432,6 +1475,11 @@ struct MapHomeView: View {
     private func handleTransitItineraryChange() {
         Task { await NotificationService.requestPermission() }
         model.scheduleTransitAlerts()
+        // Encuadrar el itinerario completo, igual que se hace con la ruta a pie.
+        if let rect = model.transitBoundingRect() {
+            headingUp = false
+            withAnimation(.easeInOut) { camera = .rect(rect) }
+        }
     }
 
     private func announceTransitAlert(_ msg: String?) {

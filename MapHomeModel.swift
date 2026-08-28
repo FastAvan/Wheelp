@@ -759,6 +759,20 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
+    /// Rectángulo que encuadra todo el itinerario de transporte, para ajustar la
+    /// cámara al calcular la ruta. nil si ningún tramo trae geometría.
+    func transitBoundingRect() -> MKMapRect? {
+        guard let legs = transitItinerary?.legs else { return nil }
+        var rect = MKMapRect.null
+        for leg in legs {
+            for coordinate in leg.path {
+                let point = MKMapPoint(coordinate)
+                rect = rect.union(MKMapRect(x: point.x, y: point.y, width: 0, height: 0))
+            }
+        }
+        return rect.isNull ? nil : rect
+    }
+
     /// Distancia al punto donde termina el tramo actual.
     func distanceToLegEnd(from location: CLLocation?) -> CLLocationDistance? {
         guard let location, let end = currentLeg?.endCoordinate else { return nil }
