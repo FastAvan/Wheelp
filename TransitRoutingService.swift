@@ -1,6 +1,23 @@
 import Foundation
 import CoreLocation
+import SwiftUI
 import Supabase
+
+extension Color {
+    /// Color a partir de un hex de 6 dígitos como los que publica Google para
+    /// las líneas de transporte ("#0178bc"). nil si la cadena no es válida, para
+    /// poder caer en un color por defecto en vez de pintar algo aleatorio.
+    init?(hex: String?) {
+        guard var value = hex?.trimmingCharacters(in: .whitespaces) else { return nil }
+        if value.hasPrefix("#") { value.removeFirst() }
+        guard value.count == 6, let rgb = UInt32(value, radix: 16) else { return nil }
+        self.init(
+            red: Double((rgb >> 16) & 0xFF) / 255,
+            green: Double((rgb >> 8) & 0xFF) / 255,
+            blue: Double(rgb & 0xFF) / 255
+        )
+    }
+}
 
 struct TransitItinerary {
     struct Leg: Identifiable {
@@ -19,6 +36,21 @@ struct TransitItinerary {
         let departureStopCoordinate: CLLocationCoordinate2D?
         /// Coordenada de la parada de llegada (nil para tramos a pie).
         let arrivalStopCoordinate: CLLocationCoordinate2D?
+        /// Sentido rotulado en el vehículo ("Sol/sevilla"). Es lo que hay que
+        /// mirar en la marquesina para no coger la línea en dirección contraria.
+        let headsign: String?
+        /// Cuántas paradas hay que aguantar hasta bajarse.
+        let stopCount: Int?
+        /// Horas ya formateadas en la zona del viaje ("12:54").
+        let departureTimeText: String?
+        let arrivalTimeText: String?
+        /// Tipo de vehículo en palabras ("Autobús", "Metro").
+        let vehicleName: String?
+        /// Color oficial de la línea, para el distintivo.
+        let lineColorHex: String?
+        let lineTextColorHex: String?
+        /// Operador ("Empresa Municipal de Transportes de Madrid").
+        let agencyName: String?
         /// Geometría del tramo, decodificada de la polilínea de Google. Permite
         /// seguir el avance por GPS también en los tramos a pie, donde no hay
         /// paradas a las que agarrarse.
@@ -28,6 +60,31 @@ struct TransitItinerary {
         /// o el final de la geometría si se va a pie.
         var endCoordinate: CLLocationCoordinate2D? {
             arrivalStopCoordinate ?? path.last
+        }
+
+        /// Distintivo de la línea: el número corto si lo hay ("9", "L4").
+        var lineBadge: String? { lineShort ?? lineName }
+
+        /// Color oficial de la línea; verde Wheelp si el operador no publica uno.
+        var lineColor: Color { Color(hex: lineColorHex) ?? .wheelpGreen }
+        var lineTextColor: Color { Color(hex: lineTextColorHex) ?? .white }
+
+        /// "Autobús 9 hacia Sol/sevilla" — la frase que resuelve qué coger.
+        var boardingSummary: String {
+            var parts: [String] = []
+            if let vehicleName { parts.append(vehicleName) }
+            if let badge = lineBadge { parts.append(badge) }
+            var text = parts.joined(separator: " ")
+            if let headsign, !headsign.isEmpty {
+                text += text.isEmpty ? "Dirección \(headsign)" : " dirección \(headsign)"
+            }
+            return text.isEmpty ? instruction : text
+        }
+
+        /// "5 paradas" / "1 parada".
+        var stopCountText: String? {
+            guard let stopCount, stopCount > 0 else { return nil }
+            return stopCount == 1 ? "1 parada" : "\(stopCount) paradas"
         }
     }
 
@@ -146,6 +203,19 @@ private struct RoutesAPIResponse: Decodable {
     struct TransitDetails: Decodable {
         let stopDetails: StopDetails?
         let transitLine: TransitLine?
+        let headsign: String?
+        let stopCount: Int?
+        let localizedValues: LocalizedValues?
+    }
+    struct LocalizedValues: Decodable {
+        let departureTime: LocalizedTime?
+        let arrivalTime: LocalizedTime?
+    }
+    struct LocalizedTime: Decodable {
+        let time: LocalizedText?
+    }
+    struct LocalizedText: Decodable {
+        let text: String?
     }
     struct StopDetails: Decodable {
         let departureStop: Stop?
@@ -166,9 +236,16 @@ private struct RoutesAPIResponse: Decodable {
         let name: String?
         let nameShort: String?
         let vehicle: Vehicle?
+        let color: String?
+        let textColor: String?
+        let agencies: [Agency]?
+    }
+    struct Agency: Decodable {
+        let name: String?
     }
     struct Vehicle: Decodable {
         let type: String?
+        let name: LocalizedText?
     }
 
     func toItinerary() -> TransitItinerary? {
@@ -196,19 +273,29 @@ private struct RoutesAPIResponse: Decodable {
                     CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
                 }
             }
-            let stops = step.transitDetails?.stopDetails
+            let details = step.transitDetails
+            let stops = details?.stopDetails
+            let line = details?.transitLine
             return TransitItinerary.Leg(
                 mode: isTransit ? .transit : .walk,
                 durationSeconds: parseDuration(step.staticDuration) ?? 0,
                 distanceMeters: step.distanceMeters ?? 0,
                 instruction: instruction,
                 vehicleEmoji: vehicleEmoji,
-                lineName: step.transitDetails?.transitLine?.name,
-                lineShort: step.transitDetails?.transitLine?.nameShort,
+                lineName: line?.name,
+                lineShort: line?.nameShort,
                 departureStop: stops?.departureStop?.name,
                 arrivalStop: stops?.arrivalStop?.name,
                 departureStopCoordinate: coordinate(stops?.departureStop),
                 arrivalStopCoordinate: coordinate(stops?.arrivalStop),
+                headsign: details?.headsign,
+                stopCount: details?.stopCount,
+                departureTimeText: details?.localizedValues?.departureTime?.time?.text,
+                arrivalTimeText: details?.localizedValues?.arrivalTime?.time?.text,
+                vehicleName: line?.vehicle?.name?.text,
+                lineColorHex: line?.color,
+                lineTextColorHex: line?.textColor,
+                agencyName: line?.agencies?.first?.name,
                 path: step.polyline?.encodedPolyline.map(GooglePolyline.decode) ?? []
             )
         }

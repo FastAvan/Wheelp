@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		10F824B3F6BEAFE091D0C7C3 /* TransitLegTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4933819F991990D84AD311CA /* TransitLegTests.swift */; };
 		5BD5B1DB4C42322390E0A84E /* GooglePolylineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA091BA917EBA4EA6C51067D /* GooglePolylineTests.swift */; };
 		70F9851F00FCEE45AD2BA1DC /* HelpCryptoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */; };
 		7D1C7BD12FEE8C0500302B3D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7D1C7BD02FEE8C0500302B3D /* Supabase */; };
@@ -82,6 +83,7 @@
 /* Begin PBXFileReference section */
 		000000000000000000000120 /* Wheelp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wheelp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		29BF7BF86170D3D9BF14815E /* WheelpTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WheelpTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4933819F991990D84AD311CA /* TransitLegTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TransitLegTests.swift; sourceTree = "<group>"; };
 		69E5E4A2E264B692B6B789D0 /* HelpCryptoTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HelpCryptoTests.swift; path = HelpCryptoTests.swift; sourceTree = "<group>"; };
 		7D1D468D3023B5FD00E891DD /* TransitRoutingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitRoutingService.swift; sourceTree = "<group>"; };
 		7D1D468F3024733D00E891DD /* AdminApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminApplicationsView.swift; sourceTree = "<group>"; };
@@ -256,6 +258,7 @@
 				AA00000000000000000000A1 /* AppStateHelperFlagTests.swift */,
 				AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */,
 				CA091BA917EBA4EA6C51067D /* GooglePolylineTests.swift */,
+				4933819F991990D84AD311CA /* TransitLegTests.swift */,
 			);
 			name = WheelpTests;
 			path = WheelpTests;
@@ -443,6 +446,7 @@
 				AA00000000000000000000B1 /* AppStateHelperFlagTests.swift in Sources */,
 				AA00000000000000000000B2 /* AppStateOnboardingRestartTests.swift in Sources */,
 				5BD5B1DB4C42322390E0A84E /* GooglePolylineTests.swift in Sources */,
+				10F824B3F6BEAFE091D0C7C3 /* TransitLegTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

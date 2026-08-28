@@ -1204,49 +1204,155 @@ struct MapHomeView: View {
     private func transitLegRow(_ leg: TransitItinerary.Leg, at index: Int) -> some View {
         let isCurrent: Bool = model.isNavigating && index == model.currentLegIndex
         let isDone: Bool = model.isNavigating && index < model.currentLegIndex
-        let line: String? = leg.lineName ?? leg.lineShort
-        let stops: String? = {
-            guard let dep = leg.departureStop, let arr = leg.arrivalStop else { return nil }
-            return "\(dep) → \(arr)"
-        }()
-        let prefix: String = isCurrent ? "Tramo actual. " : (isDone ? "Completado. " : "")
 
-        HStack(alignment: .top, spacing: 10) {
-            Text(leg.vehicleEmoji)
-                .font(.title3)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                if let line {
-                    Text(line).font(profile.bodyFont.bold())
-                }
-                Text(leg.instruction)
-                    .font(profile.bodyFont)
-                    .foregroundStyle(isCurrent ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                    .fixedSize(horizontal: false, vertical: true)
-                if let stops {
-                    Text(stops).font(.footnote).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if isDone {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.wheelpGreen)
-            } else if leg.durationSeconds > 0 {
-                Text("\(max(1, leg.durationSeconds / 60)) min")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            if leg.mode == .transit {
+                transitVehicleHeader(leg)
+                transitStopsDetail(leg)
+            } else {
+                walkLegDetail(leg)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .opacity(isDone ? 0.5 : 1)
-        .padding(.vertical, isCurrent ? 8 : 0)
-        .padding(.horizontal, isCurrent ? 10 : 0)
+        .padding(isCurrent ? 12 : 0)
         .background {
             if isCurrent {
-                RoundedRectangle(cornerRadius: 10).fill(Color.wheelpGreen.opacity(0.12))
+                RoundedRectangle(cornerRadius: 12).fill(Color.wheelpGreen.opacity(0.12))
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(prefix + (line ?? "") + " " + leg.instruction)
+        .accessibilityLabel(transitLegLabel(leg, isCurrent: isCurrent, isDone: isDone))
+    }
+
+    /// Qué vehículo hay que coger: distintivo con el color oficial de la línea,
+    /// tipo y sentido rotulado, que es lo que se lee en la marquesina.
+    @ViewBuilder
+    private func transitVehicleHeader(_ leg: TransitItinerary.Leg) -> some View {
+        HStack(spacing: 10) {
+            if let badge = leg.lineBadge {
+                Text(badge)
+                    .font(.subheadline.bold())
+                    .foregroundStyle(leg.lineTextColor)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(leg.lineColor, in: RoundedRectangle(cornerRadius: 7))
+            } else {
+                Text(leg.vehicleEmoji).font(.title3)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(leg.boardingSummary)
+                    .font(profile.bodyFont.bold())
+                    .fixedSize(horizontal: false, vertical: true)
+                if let agency = leg.agencyName {
+                    Text(agency).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 4)
+        }
+    }
+
+    /// Dónde subir y dónde bajar, con hora y cuántas paradas aguantar.
+    @ViewBuilder
+    private func transitStopsDetail(_ leg: TransitItinerary.Leg) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let stop = leg.departureStop {
+                transitStopRow(
+                    icon: "arrow.up.circle.fill", tint: .blue, verb: "Sube en",
+                    stop: stop, time: leg.departureTimeText,
+                    coordinate: leg.departureStopCoordinate
+                )
+            }
+            if let stop = leg.arrivalStop {
+                transitStopRow(
+                    icon: "arrow.down.circle.fill", tint: .purple, verb: "Baja en",
+                    stop: stop, time: leg.arrivalTimeText,
+                    coordinate: leg.arrivalStopCoordinate, trailing: leg.stopCountText
+                )
+            }
+        }
+        .padding(.leading, 2)
+    }
+
+    /// Fila de parada. Al tocarla el mapa se centra en ella: es la forma más
+    /// directa de responder "y esa parada dónde está exactamente".
+    @ViewBuilder
+    private func transitStopRow(
+        icon: String, tint: Color, verb: String, stop: String,
+        time: String?, coordinate: CLLocationCoordinate2D?, trailing: String? = nil
+    ) -> some View {
+        Button {
+            guard let coordinate else { return }
+            withAnimation(.easeInOut) {
+                camera = .region(MKCoordinateRegion(
+                    center: coordinate,
+                    latitudinalMeters: 300,
+                    longitudinalMeters: 300
+                ))
+            }
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: icon).foregroundStyle(tint).font(.footnote)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verb).font(.caption2).foregroundStyle(.secondary)
+                    Text(stop)
+                        .font(profile.bodyFont)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let trailing {
+                        Text(trailing).font(.caption2).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 4)
+                if let time {
+                    Text(time).font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(coordinate == nil)
+    }
+
+    @ViewBuilder
+    private func walkLegDetail(_ leg: TransitItinerary.Leg) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text(leg.vehicleEmoji).font(.title3).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(leg.instruction)
+                    .font(profile.bodyFont)
+                    .fixedSize(horizontal: false, vertical: true)
+                if leg.distanceMeters > 0 {
+                    Text("\(leg.distanceMeters) m").font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 4)
+            if leg.durationSeconds > 0 {
+                Text("\(max(1, leg.durationSeconds / 60)) min")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func transitLegLabel(_ leg: TransitItinerary.Leg, isCurrent: Bool, isDone: Bool) -> String {
+        var text = isCurrent ? "Tramo actual. " : (isDone ? "Completado. " : "")
+        if leg.mode == .transit {
+            text += leg.boardingSummary + ". "
+            if let stop = leg.departureStop {
+                text += "Sube en \(stop)"
+                if let time = leg.departureTimeText { text += " a las \(time)" }
+                text += ". "
+            }
+            if let stop = leg.arrivalStop {
+                text += "Baja en \(stop)"
+                if let count = leg.stopCountText { text += ", \(count)" }
+                if let time = leg.arrivalTimeText { text += ", a las \(time)" }
+                text += "."
+            }
+        } else {
+            text += leg.instruction
+            if leg.distanceMeters > 0 { text += ", \(leg.distanceMeters) metros" }
+        }
+        return text
     }
 
     @ViewBuilder
