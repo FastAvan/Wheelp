@@ -156,12 +156,14 @@ struct MapHomeView: View {
                 }
             }
             .sheet(item: $finishedContribution) { target in
+                // El ayudante no tiene discapacidad propia, pero acaba de recorrer
+                // el sitio y puede informar de las tres. Un usuario con
+                // discapacidad aporta solo sobre la suya.
                 ContributeAccessibilityView(
-                    profile: profile,
                     placeName: target.item.name ?? "este lugar",
-                    initial: [:]
-                ) { features in
-                    Task { await model.submitContribution(for: target.item, features, profile: profile) }
+                    types: appState.isHelper ? DisabilityType.selectable : [profile.type]
+                ) { byType in
+                    Task { await model.submitContributions(for: target.item, byType) }
                 }
             }
             .sheet(item: $pendingHelperRating) { ratingTarget in

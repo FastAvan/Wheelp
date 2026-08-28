@@ -434,6 +434,32 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
+    /// Aportación de varios tipos de discapacidad a la vez sobre un mismo lugar
+    /// (un ayudante puede observar rampa, bucle magnético y podotáctil en el
+    /// mismo viaje). Cada tipo es un informe independiente en el servidor.
+    ///
+    /// Si falla alguno se avisa, pero no se revierten los que sí se guardaron:
+    /// media aportación vale más que ninguna, y reintentar duplicaría informes.
+    func submitContributions(
+        for item: MKMapItem,
+        _ byType: [DisabilityType: [String: DestinationAccessibility.Feature.Status]]
+    ) async {
+        var failed = 0
+        for (type, features) in byType {
+            do {
+                try await AccessibilityService.submit(item: item, disabilityType: type, features: features)
+            } catch {
+                failed += 1
+                print("Wheelp: error al guardar la aportación (\(type.rawValue)): \(error)")
+            }
+        }
+        if failed > 0 {
+            errorMessage = failed == byType.count
+                ? "No se pudo guardar tu aportación. Inténtalo desde la ficha del lugar."
+                : "Se guardó parte de tu aportación. Revisa el resto en la ficha del lugar."
+        }
+    }
+
     /// Resumen de la elección de ruta (obstáculos del camino / evitados).
     var routeChoiceNote: String?
     /// ¿La ruta elegida sigue teniendo obstáculos relevantes? (→ ofrecer ayudante)
