@@ -33,17 +33,6 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
     }
 
-    // MARK: - Precisión
-
-    /// Pide precisión completa solo mientras dura una ruta. La app declara
-    /// `NSLocationDefaultAccuracyReduced`, así que por defecto iOS entrega una
-    /// zona de 1-3 km: suficiente para avisar al ayudante de peticiones
-    /// cercanas, inútil para guiar paso a paso.
-    func requestFullAccuracyForNavigation() async {
-        guard manager.accuracyAuthorization == .reducedAccuracy else { return }
-        try? await manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: "Navegacion")
-    }
-
     // MARK: - Turno del ayudante (ubicación en segundo plano)
 
     /// Arranca el seguimiento de zona mientras el ayudante tiene turno activo.

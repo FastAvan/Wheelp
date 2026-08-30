@@ -1451,10 +1451,6 @@ struct MapHomeView: View {
                     .frame(maxWidth: .infinity, minHeight: profile.controlMinHeight)
 
                     Button {
-                        // La app declara precisión reducida por defecto; para
-                        // guiar paso a paso hace falta la exacta, y se pide solo
-                        // aquí y solo mientras dure la ruta.
-                        Task { await location.requestFullAccuracyForNavigation() }
                         withAnimation { model.startNavigation() }
                     } label: {
                         Label("Iniciar", systemImage: "location.north.line.fill")
