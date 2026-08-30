@@ -112,14 +112,21 @@ Deno.serve(async (req) => {
   let body = "Tienes una notificación nueva";
   let contentAvailable = false;
 
-  if (table === "help_requests" && type === "INSERT") {
+  /// Avisa a los ayudantes disponibles alrededor de la petición. El radio vive
+  /// en la fila (search_radius_km) para que ampliarlo sea un UPDATE normal del
+  /// solicitante y reutilice este mismo camino.
+  async function nearbyHelpers(rec: any): Promise<string[]> {
     const { data, error } = await supabase.rpc("nearby_helper_ids", {
-      p_lat: record.area_latitude,
-      p_lng: record.area_longitude,
-      p_radius_km: NEARBY_RADIUS_KM,
+      p_lat: rec.area_latitude,
+      p_lng: rec.area_longitude,
+      p_radius_km: rec.search_radius_km ?? NEARBY_RADIUS_KM,
     });
     if (error) console.error("nearby_helper_ids error", error);
-    userIds = (data ?? []).map((r: any) => r.user_id);
+    return (data ?? []).map((r: any) => r.user_id);
+  }
+
+  if (table === "help_requests" && type === "INSERT") {
+    userIds = await nearbyHelpers(record);
     title = "Nueva petición de ayuda";
     body = "Alguien cerca de ti necesita ayuda. Ábrela para ver los detalles.";
     contentAvailable = true;
@@ -129,6 +136,29 @@ Deno.serve(async (req) => {
     if (record.requester_id) userIds = [record.requester_id];
     title = "¡Tu solicitud fue aceptada!";
     body = "Un ayudante viene en camino";
+
+  } else if (table === "help_requests" && type === "UPDATE"
+             && record.status === "pending"
+             && (old_record?.status === "accepted" || old_record?.status === "in_progress")) {
+    // El ayudante ha devuelto la petición al grupo. Se avisa a los demás para
+    // que puedan cogerla, y al solicitante para que no se quede esperando a
+    // alguien que ya no va — que es justo el silencio que hay que evitar.
+    const helpers = await nearbyHelpers(record);
+    userIds = record.requester_id ? [...helpers, record.requester_id] : helpers;
+    title = "Petición de ayuda libre otra vez";
+    body = "Un ayudante no ha podido continuar. Ábrela para ver los detalles.";
+    contentAvailable = true;
+
+  } else if (table === "help_requests" && type === "UPDATE"
+             && record.status === "pending" && old_record?.status === "pending"
+             && (record.search_radius_km ?? 0) > (old_record?.search_radius_km ?? 0)) {
+    // Escalado: nadie aceptó y el solicitante amplió la búsqueda. Se avisa solo
+    // a los que entran con el radio nuevo; los de dentro ya recibieron el aviso.
+    const antes = new Set(await nearbyHelpers({ ...record, search_radius_km: old_record.search_radius_km }));
+    userIds = (await nearbyHelpers(record)).filter((id) => !antes.has(id));
+    title = "Petición de ayuda cerca de ti";
+    body = "Alguien lleva un rato esperando ayuda. Ábrela para ver los detalles.";
+    contentAvailable = true;
 
   } else if (table === "help_messages" && type === "INSERT") {
     const { data: hr } = await supabase

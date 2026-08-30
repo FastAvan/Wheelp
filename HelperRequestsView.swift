@@ -27,6 +27,8 @@ struct HelperRequestsView: View {
     @State private var helperHasAvatar = false
     /// Ubicación confirmada al abrir. Manda sobre `userLocation` en cuanto llega.
     @State private var confirmedLocation: CLLocation?
+    /// Petición que el ayudante quiere devolver al grupo, pendiente de confirmar.
+    @State private var releaseTarget: HelpRequest?
 
     /// La mejor ubicación disponible: la confirmada si ya se obtuvo, si no la
     /// que traía la vista al abrirse.
@@ -127,6 +129,24 @@ struct HelperRequestsView: View {
             }
             .task { await pollLoop() }
             .refreshable { await refresh() }
+            .confirmationDialog(
+                "¿Devolver esta petición?",
+                isPresented: Binding(get: { releaseTarget != nil },
+                                     set: { if !$0 { releaseTarget = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Sí, no puedo ir", role: .destructive) {
+                    guard let request = releaseTarget else { return }
+                    releaseTarget = nil
+                    Task {
+                        cancelReminders(for: request)
+                        if await HelperService.release(request.id) { await refresh() }
+                    }
+                }
+                Button("Seguir con ella", role: .cancel) { releaseTarget = nil }
+            } message: {
+                Text("Se avisará a la persona y a otros ayudantes cercanos para que alguien pueda ayudarla. Es mejor devolverla ahora que no aparecer.")
+            }
             .sheet(item: $chatRequest) { request in
                 HelpChatView(request: request)
             }
@@ -356,6 +376,19 @@ struct HelperRequestsView: View {
                 }
             }
             .padding(.top, 10)
+
+            // Salida honesta para quien acepta y luego no puede ir. Sin esto
+            // solo le quedaba desaparecer —dejando a alguien esperando sin
+            // saberlo— o marcar "Completada" sin haber ido.
+            Button(role: .destructive) {
+                releaseTarget = request
+            } label: {
+                Label("No puedo ir", systemImage: "arrow.uturn.backward")
+                    .font(.footnote)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.red)
+            .padding(.top, 2)
         }
         .padding(.vertical, 4)
     }
