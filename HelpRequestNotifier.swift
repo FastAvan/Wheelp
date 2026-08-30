@@ -39,9 +39,15 @@ final class HelpRequestNotifier {
     }
 
     private func check() async {
-        let requests = await HelperService.fetchPending(near: nil)
-        let ids = Set(requests.map { $0.id })
-        knownIds = ids
+        // Ya no sondea. Antes pedía todas las peticiones pendientes y guardaba
+        // sus ids, pero nadie los leía: el aviso al ayudante lo manda el
+        // servidor (send-push) y la lista la carga HelperRequestsView al
+        // abrirse. Era una llamada cada 30 s cuyo resultado se descartaba.
+        //
+        // Además, desde que el filtrado por distancia está en el servidor
+        // (nearby_pending_requests) haría falta una ubicación para consultar,
+        // y aquí no hay ninguna fiable: sondear sin ella devolvería vacío
+        // siempre, dando la falsa impresión de que no hay peticiones.
         primed = true
     }
 }
