@@ -396,12 +396,19 @@ enum HelperService {
 
     // MARK: - Descubrir y aceptar (ayudante)
 
+    /// Ventana de validez de una petición inmediata. Pasado ese tiempo se asume
+    /// que quien la pidió ya se ha marchado: aceptarla mandaría a un ayudante a
+    /// un encuentro que ya no existe. El servidor la rechaza igualmente
+    /// (trigger prevent_stale_accept), esto solo evita mostrarla.
+    static let requestValidity: TimeInterval = 30 * 60
+
     /// Peticiones inmediatas (sin fecha) pendientes cercanas, por distancia.
     static func fetchPending(near center: CLLocationCoordinate2D?, radiusKm: Double = 20) async -> [HelpRequest] {
         let requests: [HelpRequest]? = try? await supabase
             .from(table)
             .select()
             .eq("status", value: HelpRequest.Status.pending.rawValue)
+            .gte("created_at", value: Date().addingTimeInterval(-requestValidity).ISO8601Format())
             .order("created_at", ascending: false)
             .limit(50)
             .execute()
@@ -487,7 +494,14 @@ enum HelperService {
             return false
         }
         do {
-            try await supabase
+            // El .eq("status","pending") evita pisar una petición ya aceptada, pero
+            // si otro ayudante se adelantó el UPDATE afecta a CERO filas y PostgREST
+            // responde 200 sin error. Sin comprobar las filas devueltas, los dos
+            // ayudantes creerían tener la petición y uno saldría hacia un encuentro
+            // que el solicitante no sabe que existe. Por eso se pide .select() y se
+            // exige exactamente una fila.
+            struct AcceptedRow: Decodable { let id: UUID }
+            let accepted: [AcceptedRow] = try await supabase
                 .from(table)
                 .update([
                     "status": HelpRequest.Status.accepted.rawValue,
@@ -497,7 +511,10 @@ enum HelperService {
                 ])
                 .eq("id", value: request.id)
                 .eq("status", value: HelpRequest.Status.pending.rawValue)
+                .select("id")
                 .execute()
+                .value
+            guard !accepted.isEmpty else { return false }
             // Save key only after the update is confirmed, to avoid leaving a
             // dangling key if the update fails or races with another accept.
             HelpCrypto.savePrivateKey(privateKey, for: request.id)
