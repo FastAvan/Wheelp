@@ -1,0 +1,17 @@
+-- Categoría especial (art. 9 RGPD) almacenada sin finalidad: se elimina.
+--
+-- profiles.disability_type unía el tipo de discapacidad a nombre, apellidos y
+-- correo de forma permanente. Verificado antes de borrar (2026-08-31):
+--   · 0 filas con valor no nulo,
+--   · ningún trigger en auth.users ni en public.profiles que la rellenase,
+--   · ninguna referencia desde Swift: la app lee el tipo de UserDefaults
+--     (AppState.Keys.disability), nunca del servidor.
+-- Era, por tanto, el tratamiento más sensible del sistema sin ninguna función.
+-- El art. 5.1.c) no admite conservar lo que no se usa: se suelta la columna en
+-- vez de declararla en la política de privacidad.
+--
+-- El tipo sigue existiendo donde sí hace falta:
+--   · help_requests.disability_type — por petición, se borra con ella.
+--   · accessibility_reports.disability_type — describe el criterio valorado del
+--     sitio, no la condición de quien informa.
+ALTER TABLE public.profiles DROP COLUMN IF EXISTS disability_type;

@@ -47,6 +47,13 @@ struct SettingsView: View {
         // para que SwiftUI gestione el ciclo de vida del task correctamente y no
         // lo reinicie en cada re-render de body.
         .sheet(isPresented: $showTerms) { TermsView() }
+        .sheet(isPresented: $showPrivacy) { PrivacyView() }
+        .sheet(isPresented: $showShiftNotice) {
+            HelperShiftNoticeView {
+                appState.hasSeenHelperShiftNotice = true
+                showShiftPicker = true
+            }
+        }
         .confirmationDialog(
             "¿Cuánto tiempo vas a estar disponible?",
             isPresented: $showShiftPicker,
@@ -320,6 +327,9 @@ struct SettingsView: View {
     @State private var showTerms = false
     /// Selector de duración del turno al activar la disponibilidad.
     @State private var showShiftPicker = false
+    /// Aviso de qué se comparte durante un turno, solo la primera vez.
+    @State private var showShiftNotice = false
+    @State private var showPrivacy = false
     @State private var showAdminApplications = false
     private var helperSection: some View {
         Section {
@@ -334,8 +344,11 @@ struct SettingsView: View {
                 get: { appState.isHelperAvailable },
                 // Activar abre el selector de turno; desactivar es inmediato.
                 set: { activar in
-                    if activar { showShiftPicker = true }
-                    else { appState.setHelperAvailability(false) }
+                    guard activar else { return appState.setHelperAvailability(false) }
+                    // La información tiene que llegar ANTES de compartir nada,
+                    // así que el aviso va delante del selector de turno.
+                    if appState.hasSeenHelperShiftNotice { showShiftPicker = true }
+                    else { showShiftNotice = true }
                 }
             )) {
                 Label("Disponible para ayudar", systemImage: "hand.raised.circle.fill")
@@ -474,10 +487,28 @@ struct SettingsView: View {
                 Label("Términos y condiciones", systemImage: "doc.text")
                     .foregroundStyle(.primary)
             }
+            Button {
+                showPrivacy = true
+            } label: {
+                Label("Privacidad y tus derechos", systemImage: "hand.raised")
+                    .foregroundStyle(.primary)
+            }
         } header: {
             Text("Privacidad y datos")
         } footer: {
-            Text("Tu correo se guarda en el servidor (Supabase) para gestionar la sesión. Los destinos y las rutas se envían a Google Maps y OpenStreetMap para calcular itinerarios; la ubicación exacta nunca se almacena en el servidor. Los favoritos y el historial permanecen solo en este iPhone. Las solicitudes de ayuda y los mensajes viajan cifrados de extremo a extremo y se borran al terminar.")
+            // La frase anterior ("la ubicación exacta nunca se almacena en el
+            // servidor") era cierta y engañosa a la vez: se lee como "no se
+            // guarda ubicación" justo cuando la del ayudante se guarda durante
+            // horas. Se dice qué SÍ se guarda, que es lo que exige el art. 13.
+            VStack(alignment: .leading, spacing: 10) {
+                Text("**Lo que se guarda en el servidor:** tu correo, para mantener tu cuenta. Y una zona aproximada de unos dos kilómetros mientras tienes una petición de ayuda abierta, para encontrar ayudantes cerca. Esa zona se borra cuando la petición termina.")
+                Text("**Lo que no sale de este iPhone:** tus favoritos, tu historial de rutas, el tipo de accesibilidad que has elegido y la navegación paso a paso. Tu posición exacta se usa para guiarte, pero no se envía a ningún servidor de Wheelp.")
+                Text("**Lo que Wheelp no puede leer:** el punto de encuentro y los mensajes con tu ayudante. Van cifrados de extremo a extremo y se borran al terminar.")
+                Text("**Con quién se comparte:** el destino que buscas se envía a Google Maps y a OpenStreetMap para calcular la ruta. Si tienes notificaciones activadas, Apple recibe un identificador de tu dispositivo y el texto del aviso. Ese aviso nunca incluye información sobre tu discapacidad.")
+                if appState.isHelper {
+                    Text("**Si eres ayudante:** mientras tienes un turno activo, tu zona aproximada de unos dos kilómetros se actualiza en el servidor, también con la app cerrada. Se guarda solo la última zona conocida, sin historial de tus movimientos. Al terminar el turno deja de actualizarse. Para verificar tu identidad usamos Didit: tu documento se comprueba en tu propio dispositivo y no pasa por Wheelp. Tu nombre y tu foto los ve la persona a la que ayudas.")
+                }
+            }
         }
     }
 

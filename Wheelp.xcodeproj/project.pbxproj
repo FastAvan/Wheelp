@@ -50,6 +50,7 @@
 		7DAD65C4300685DA00CBB79B /* MapHomeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */; };
 		7DAD65C63006860000CBB79B /* WalkingPaceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DAD65C53006860000CBB79B /* WalkingPaceService.swift */; };
 		7DD3E14930196A900066E578 /* TermsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E14830196A900066E578 /* TermsView.swift */; };
+		7DD3E1AB30196A900066E578 /* PrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E1AA30196A900066E578 /* PrivacyView.swift */; };
 		7DD3E14B30196AD30066E578 /* HelperApplicationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */; };
 		7DDD6C803024A1BE00E34CA0 /* HelpRequestNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DDD6C7F3024A1BE00E34CA0 /* HelpRequestNotifier.swift */; };
 		7DE071F430002E2C0089CE1E /* RouteObstaclesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */; };
@@ -121,6 +122,7 @@
 		7DAD65C3300685DA00CBB79B /* MapHomeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapHomeModel.swift; sourceTree = "<group>"; };
 		7DAD65C53006860000CBB79B /* WalkingPaceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalkingPaceService.swift; sourceTree = "<group>"; };
 		7DD3E14830196A900066E578 /* TermsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsView.swift; sourceTree = "<group>"; };
+		7DD3E1AA30196A900066E578 /* PrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyView.swift; sourceTree = "<group>"; };
 		7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelperApplicationView.swift; sourceTree = "<group>"; };
 		7DDD6C7F3024A1BE00E34CA0 /* HelpRequestNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpRequestNotifier.swift; sourceTree = "<group>"; };
 		7DE071F330002E2C0089CE1E /* RouteObstaclesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteObstaclesService.swift; sourceTree = "<group>"; };
@@ -235,6 +237,7 @@
 				7D2B86DF3018BCE70080E8A5 /* AvatarCropView.swift */,
 				7D2B86E13018C30F0080E8A5 /* ContactPickerView.swift */,
 				7DD3E14830196A900066E578 /* TermsView.swift */,
+				7DD3E1AA30196A900066E578 /* PrivacyView.swift */,
 				7DD3E14A30196AD30066E578 /* HelperApplicationView.swift */,
 				7D9ADA2830229D86000E24D8 /* AppDelegate.swift */,
 				7D9ADA2A30229D8D000E24D8 /* PushTokenService.swift */,
@@ -428,6 +431,7 @@
 				7DD3E14B30196AD30066E578 /* HelperApplicationView.swift in Sources */,
 				7DE8C3533007EC7B00080ED0 /* SOSView.swift in Sources */,
 				7DD3E14930196A900066E578 /* TermsView.swift in Sources */,
+				7DD3E1AB30196A900066E578 /* PrivacyView.swift in Sources */,
 				7DA506472FF1775B0066B1C2 /* WheelpApp.swift in Sources */,
 				7DA506512FF177970066B1C2 /* OnboardingFlowView.swift in Sources */,
 				7DA506552FF177AC0066B1C2 /* HomeView.swift in Sources */,

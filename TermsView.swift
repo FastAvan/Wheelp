@@ -28,7 +28,7 @@ struct TermsView: View {
                     )
 
                     TermsSection(title: "4. Privacidad y cifrado", content:
-                        "Las solicitudes de ayuda y los mensajes se transmiten cifrados de extremo a extremo: Wheelp no puede leer su contenido. Los datos de localización permanecen en el dispositivo. Solo el correo electrónico se almacena en el servidor para gestionar la sesión."
+                        "Las solicitudes de ayuda y los mensajes se transmiten cifrados de extremo a extremo: Wheelp no puede leer su contenido, y el punto de encuentro viaja dentro de ese cifrado.\n\nEn el servidor se guardan tu correo, para mantener la cuenta, y zonas aproximadas de unos dos kilómetros: la de una petición mientras está abierta, y la de un ayudante mientras tiene un turno activo. Tu posición exacta se usa para guiarte, pero no se envía a ningún servidor de Wheelp.\n\nTienes el detalle completo en Ajustes, en «Privacidad y tus derechos»."
                     )
 
                     TermsSection(title: "5. Responsabilidad", content:

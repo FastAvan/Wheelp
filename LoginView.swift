@@ -15,6 +15,7 @@ struct LoginView: View {
     @State private var privacyAccepted = false
     @State private var termsAccepted = false
     @State private var showTerms = false
+    @State private var showPrivacy = false
     @State private var currentNonce = ""
     @State private var pendingEmail = ""
     @State private var otpEmail = ""
@@ -75,6 +76,7 @@ struct LoginView: View {
         .sheet(isPresented: $showTerms) {
             TermsView { termsAccepted = true }
         }
+        .sheet(isPresented: $showPrivacy) { PrivacyView() }
         .task {
             if isVisual {
                 speech.isEnabled = true
@@ -313,14 +315,26 @@ struct LoginView: View {
                 .labelsHidden()
                 .tint(Color.wheelpGreen)
                 .accessibilityLabel("He leído y acepto cómo se tratan mis datos.")
-            Text("He leído y acepto cómo se tratan mis datos: el correo se guarda en el servidor para gestionar la sesión. Los destinos se envían a Google Maps y OpenStreetMap para calcular rutas. Los favoritos permanecen solo en este iPhone. Puedo eliminar mi cuenta en cualquier momento desde Ajustes.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            // Información por capas (arts. 12-14): resumen fiel aquí, detalle en
+            // PrivacyView. Frases cortas y sin símbolos que VoiceOver lee mal,
+            // porque buena parte de quien lea esto lo hará con el oído.
+            VStack(alignment: .leading, spacing: 8) {
+                Text("He leído y acepto cómo se tratan mis datos.\n\nWheelp guarda tu correo para mantener tu cuenta. El tipo de accesibilidad que eliges se queda en este iPhone y sirve para adaptar la app.\n\nCuando pides ayuda se comparte una zona aproximada de unos dos kilómetros, nunca tu posición exacta. El punto de encuentro y los mensajes viajan cifrados: solo los puede leer la persona que te ayuda. Wheelp no puede.\n\nTus destinos se consultan en Google Maps y OpenStreetMap para calcular la ruta. Tus favoritos y tu historial no salen de este iPhone.\n\nSi activas las notificaciones, guardamos un identificador de tu dispositivo para poder avisarte.\n\nPuedes borrar tu cuenta y todos tus datos desde Ajustes, cuando quieras.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                // Botón aparte, no dentro del Text: VoiceOver tiene que poder
+                // llegar al detalle sin recorrer todo el párrafo.
+                Button("Ver qué datos se tratan y tus derechos") { showPrivacy = true }
+                    .font(.footnote)
+                    .foregroundStyle(Color.wheelpGreen)
+            }
         }
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .accessibilityElement(children: .combine)
+        // .combine fusionaría el botón con el párrafo y VoiceOver dejaría de
+        // poder enfocarlo. El enlace al detalle tiene que ser alcanzable.
+        .accessibilityElement(children: .contain)
     }
 
     private var fieldBackground: some View {
