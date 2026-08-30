@@ -407,47 +407,63 @@ enum HelperService {
     static let requestValidity: TimeInterval = 30 * 60
 
     /// Peticiones inmediatas (sin fecha) pendientes cercanas, por distancia.
+    /// Margen que se suma al radio para compensar el redondeo de la zona.
+    /// Las coordenadas se publican en una rejilla aproximada, así que alguien
+    /// justo dentro del radio puede aparecer ligeramente fuera. Es preferible
+    /// incluir a alguno de más que perder a quien sí podía ayudar.
+    static let gridPaddingKm: Double = 1
+
+    /// Peticiones inmediatas pendientes cercanas.
+    ///
+    /// El filtro por distancia lo hace el servidor (`nearby_pending_requests`).
+    /// Antes se pedían todas y se filtraba aquí, lo que significaba enviar a
+    /// cualquier ayudante el tipo de discapacidad —dato de salud— de personas de
+    /// toda España a las que nunca iba a atender.
     static func fetchPending(near center: CLLocationCoordinate2D?, radiusKm: Double = 20) async -> [HelpRequest] {
+        guard let center else { return [] }
+        struct Params: Encodable {
+            let p_lat: Double
+            let p_lng: Double
+            let p_radius_km: Double
+        }
         let requests: [HelpRequest]? = try? await supabase
-            .from(table)
-            .select()
-            .eq("status", value: HelpRequest.Status.pending.rawValue)
-            .gte("created_at", value: Date().addingTimeInterval(-requestValidity).ISO8601Format())
-            .order("created_at", ascending: false)
-            .limit(50)
+            .rpc("nearby_pending_requests", params: Params(
+                p_lat: center.latitude,
+                p_lng: center.longitude,
+                p_radius_km: radiusKm + gridPaddingKm
+            ))
             .execute()
             .value
         guard let requests else { return [] }
-        // Solo las inmediatas (sin cita programada).
-        let immediate = requests.filter { $0.scheduledAt == nil }
-        guard let center else { return immediate }
         let here = CLLocation(latitude: center.latitude, longitude: center.longitude)
-        return immediate
-            .filter { distance(from: here, to: $0) <= radiusKm * 1000 }
+        return requests
+            .filter { $0.scheduledAt == nil }
             .sorted { distance(from: here, to: $0) < distance(from: here, to: $1) }
     }
 
     /// Citas programadas pendientes (futuras o hasta 30 min pasadas) cercanas,
     /// ordenadas por fecha de la cita.
+    /// Citas programadas pendientes cercanas. Mismo filtrado en servidor que las
+    /// inmediatas, por el mismo motivo: no repartir datos de salud de peticiones
+    /// que este ayudante no puede atender.
     static func fetchScheduled(near center: CLLocationCoordinate2D?, radiusKm: Double = 20) async -> [HelpRequest] {
+        guard let center else { return [] }
+        struct Params: Encodable {
+            let p_lat: Double
+            let p_lng: Double
+            let p_radius_km: Double
+        }
         let requests: [HelpRequest]? = try? await supabase
-            .from(table)
-            .select()
-            .eq("status", value: HelpRequest.Status.pending.rawValue)
-            .order("scheduled_at", ascending: true)
-            .limit(50)
+            .rpc("nearby_pending_requests", params: Params(
+                p_lat: center.latitude,
+                p_lng: center.longitude,
+                p_radius_km: radiusKm + gridPaddingKm
+            ))
             .execute()
             .value
         guard let requests else { return [] }
-        let cutoff = Date().addingTimeInterval(-30 * 60)
-        let scheduled = requests.filter {
-            guard let date = $0.scheduledAt else { return false }
-            return date > cutoff
-        }
-        guard let center else { return scheduled }
-        let here = CLLocation(latitude: center.latitude, longitude: center.longitude)
-        return scheduled
-            .filter { distance(from: here, to: $0) <= radiusKm * 1000 }
+        return requests
+            .filter { $0.scheduledAt != nil }
             .sorted {
                 guard let a = $0.scheduledAt, let b = $1.scheduledAt else { return false }
                 return a < b
