@@ -4,7 +4,14 @@ import CoreLocation
 /// Pantalla del ayudante: peticiones inmediatas cercanas, citas programadas
 /// y las que ya ha aceptado. Se refresca por sondeo mientras está abierta.
 struct HelperRequestsView: View {
+    /// Última ubicación conocida al abrir. Sirve de arranque, pero puede estar
+    /// desfasada si la vista se abre desde un push con la app cerrada.
     let userLocation: CLLocation?
+    /// Pide un fix reciente al abrir la pantalla. La ubicación guardada en el
+    /// servidor solo se refresca con la app en primer plano, así que al llegar
+    /// aquí desde un aviso puede tener horas: sin confirmarla, las distancias
+    /// que se enseñan (y el orden de la lista) serían las de otro sitio.
+    var confirmLocation: (() async -> CLLocation?)? = nil
     var onVisualize: ((HelpRequest) -> Void)? = nil
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
@@ -18,6 +25,12 @@ struct HelperRequestsView: View {
     @State private var meetingCodes: [UUID: String] = [:]
     /// false si el ayudante no tiene foto de perfil: bloquea aceptar peticiones.
     @State private var helperHasAvatar = false
+    /// Ubicación confirmada al abrir. Manda sobre `userLocation` en cuanto llega.
+    @State private var confirmedLocation: CLLocation?
+
+    /// La mejor ubicación disponible: la confirmada si ya se obtuvo, si no la
+    /// que traía la vista al abrirse.
+    private var activeLocation: CLLocation? { confirmedLocation ?? userLocation }
     @State private var showSettingsForAvatar = false
 
     var body: some View {
@@ -379,9 +392,21 @@ struct HelperRequestsView: View {
 
     // MARK: - Datos
 
+    /// Confirma dónde está el ayudante antes de enseñar nada, y aprovecha para
+    /// dejar esa posición en el servidor: es la que decidirá si le llegan los
+    /// próximos avisos, y hasta aquí podía ser de hace días.
+    private func confirmLocationIfNeeded() async {
+        guard let confirmLocation else { return }
+        guard let fresh = await confirmLocation() else { return }
+        confirmedLocation = fresh
+        if appState.isHelper && appState.isHelperAvailable {
+            await HelperService.updateHelperLocation(fresh, force: true)
+        }
+    }
+
     private func refresh() async {
-        async let pendingList   = HelperService.fetchPending(near: userLocation?.coordinate)
-        async let scheduledList = HelperService.fetchScheduled(near: userLocation?.coordinate)
+        async let pendingList   = HelperService.fetchPending(near: activeLocation?.coordinate)
+        async let scheduledList = HelperService.fetchScheduled(near: activeLocation?.coordinate)
         async let acceptedList  = HelperService.fetchAccepted()
         pending   = await pendingList
         scheduled = await scheduledList
@@ -400,6 +425,10 @@ struct HelperRequestsView: View {
     private func pollLoop() async {
         // Comprobar foto de perfil una sola vez al abrir la pantalla.
         helperHasAvatar = (await HelperService.currentAvatarURL()) != nil
+        // Confirmar la ubicación ANTES del primer refresh: si no, la lista
+        // aparecería ordenada y filtrada por una posición que puede ser de otro
+        // día, y el ayudante vería "a 400 m" algo que tiene a 30 km.
+        await confirmLocationIfNeeded()
         await refresh()
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(10))
@@ -408,8 +437,8 @@ struct HelperRequestsView: View {
     }
 
     private func distanceText(_ request: HelpRequest) -> String? {
-        guard let userLocation else { return nil }
-        let meters = HelperService.distance(from: userLocation, to: request)
+        guard let location = activeLocation else { return nil }
+        let meters = HelperService.distance(from: location, to: request)
         if meters < 1000 { return "a \(Int(meters)) m" }
         return String(format: "a %.1f km", meters / 1000)
     }
