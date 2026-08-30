@@ -109,7 +109,10 @@ struct MapHomeView: View {
         coreMap
             .sheet(isPresented: $showSettings) { SettingsView() }
             .sheet(isPresented: $showHelperRequests) {
-                HelperRequestsView(userLocation: location.lastLocation) { request in
+                HelperRequestsView(
+                    userLocation: location.lastLocation,
+                    confirmLocation: { await location.currentLocation() }
+                ) { request in
                     visualize(request)
                 }
             }

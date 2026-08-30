@@ -170,9 +170,13 @@ enum HelperService {
 
     /// Actualiza lat/lng del ayudante en `helpers`. Throttling: solo escribe si han pasado
     /// más de 5 minutos O el ayudante se ha movido más de 200 m desde la última vez.
-    static func updateHelperLocation(_ location: CLLocation) async {
+    ///
+    /// `force` salta el throttling. Se usa al abrir la app desde un push: es el
+    /// único momento en que se sabe con certeza dónde está el ayudante, y esa
+    /// posición es la que decidirá si le llegan los siguientes avisos.
+    static func updateHelperLocation(_ location: CLLocation, force: Bool = false) async {
         let now = Date()
-        if let last = lastLocationCoord {
+        if !force, let last = lastLocationCoord {
             let elapsed = now.timeIntervalSince(lastLocationUpdate)
             let moved = location.distance(from: CLLocation(latitude: last.latitude, longitude: last.longitude))
             guard elapsed > 300 || moved > 200 else { return }

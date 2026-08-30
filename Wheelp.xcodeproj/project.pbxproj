@@ -68,6 +68,7 @@
 		AA00000000000000000000B1 /* AppStateHelperFlagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000A1 /* AppStateHelperFlagTests.swift */; };
 		AA00000000000000000000B2 /* AppStateOnboardingRestartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */; };
 		D16187174840A57B4BF115B9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEE39C0564D31240B769B331 /* Foundation.framework */; };
+		F03507C18BF05C37A1841253 /* LocationFreshnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80413AC725FA817CB91D7DCD /* LocationFreshnessTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -133,6 +134,7 @@
 		7DFCEDA32FF25A4A00D2D815 /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
 		7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributeAccessibilityView.swift; sourceTree = "<group>"; };
 		7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSMAccessibilityService.swift; sourceTree = "<group>"; };
+		80413AC725FA817CB91D7DCD /* LocationFreshnessTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocationFreshnessTests.swift; sourceTree = "<group>"; };
 		AA00000000000000000000A1 /* AppStateHelperFlagTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppStateHelperFlagTests.swift; path = AppStateHelperFlagTests.swift; sourceTree = "<group>"; };
 		AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppStateOnboardingRestartTests.swift; path = AppStateOnboardingRestartTests.swift; sourceTree = "<group>"; };
 		BEE39C0564D31240B769B331 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -259,6 +261,7 @@
 				AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */,
 				CA091BA917EBA4EA6C51067D /* GooglePolylineTests.swift */,
 				4933819F991990D84AD311CA /* TransitLegTests.swift */,
+				80413AC725FA817CB91D7DCD /* LocationFreshnessTests.swift */,
 			);
 			name = WheelpTests;
 			path = WheelpTests;
@@ -447,6 +450,7 @@
 				AA00000000000000000000B2 /* AppStateOnboardingRestartTests.swift in Sources */,
 				5BD5B1DB4C42322390E0A84E /* GooglePolylineTests.swift in Sources */,
 				10F824B3F6BEAFE091D0C7C3 /* TransitLegTests.swift in Sources */,
+				F03507C18BF05C37A1841253 /* LocationFreshnessTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
