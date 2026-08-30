@@ -27,12 +27,21 @@ final class AppStateHelperFlagTests: XCTestCase {
 
     /// Si `fetchAvailability()` devuelve nil (401, red caída) no se toca
     /// `isHelperAvailable`, así que el valor persistido es el que queda en pie.
-    func testIsHelperAvailableSePersisteYPorDefectoEsTrue() {
+    ///
+    /// El valor por defecto cambió a `false` a propósito. Antes arrancaba en
+    /// `true` para no interrumpir a ayudantes ya dados de alta, pero desde que
+    /// estar disponible implica compartir la zona en segundo plano, dejarlo
+    /// activo por omisión sería tratar datos de ubicación sin que nadie lo haya
+    /// declarado. Este test protege esa decisión: si alguien vuelve a poner
+    /// `?? true` en el init, aquí se entera.
+    func testIsHelperAvailableSePersisteYPorDefectoEsFalse() {
         UserDefaults.standard.removeObject(forKey: availableKey)
-        XCTAssertTrue(AppState().isHelperAvailable, "sin dato previo, el ayudante arranca disponible")
+        XCTAssertFalse(AppState().isHelperAvailable,
+                       "sin declaración previa no puede compartirse la zona del ayudante")
 
         let state = AppState()
-        state.isHelperAvailable = false
-        XCTAssertFalse(AppState().isHelperAvailable, "un arranque posterior debe recordar que se puso no disponible")
+        state.isHelperAvailable = true
+        XCTAssertTrue(AppState().isHelperAvailable,
+                      "un arranque posterior debe recordar que se declaró disponible")
     }
 }

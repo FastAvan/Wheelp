@@ -101,6 +101,12 @@ final class AppState {
 
     /// El ayudante ha activado su disponibilidad para recibir peticiones de ayuda.
     /// Se persiste en UserDefaults (inicio rápido) y se sincroniza con Supabase al cambiar.
+    /// El ayudante ha declarado que también trabaja de noche. Sin esto, el turno
+    /// no se prolonga más allá del corte nocturno.
+    var worksAtNight: Bool {
+        didSet { defaults.set(worksAtNight, forKey: Keys.worksAtNight) }
+    }
+
     var isHelperAvailable: Bool {
         didSet { defaults.set(isHelperAvailable, forKey: Keys.helperAvailable) }
     }
@@ -123,6 +129,7 @@ final class AppState {
         static let trustedContact = "wheelp.trustedContactPhone"
         static let termsAccepted = "wheelp.hasAcceptedTerms"
         static let helperAvailable = "wheelp.helperAvailable"
+        static let worksAtNight = "wheelp.worksAtNight"
         static let helper = "wheelp.isHelper"
     }
 
@@ -151,8 +158,13 @@ final class AppState {
         voiceControlEnabled = (defaults.object(forKey: Keys.voiceControl) as? Bool) ?? true
         voiceRate = (defaults.object(forKey: Keys.voiceRate) as? Double) ?? Self.defaultVoiceRate
         hasAcceptedTerms = defaults.bool(forKey: Keys.termsAccepted)
-        // Disponibilidad: true por defecto para no interrumpir ayudantes existentes.
-        isHelperAvailable = (defaults.object(forKey: Keys.helperAvailable) as? Bool) ?? true
+        // Disponibilidad: false por defecto. Antes arrancaba en true para no
+        // interrumpir a ayudantes existentes, pero ahora estar disponible
+        // implica compartir la zona en segundo plano: eso no puede quedar
+        // activado por omisión, tiene que declararlo la persona. El estado real
+        // lo confirma el servidor en refreshAvailabilityShift().
+        isHelperAvailable = defaults.bool(forKey: Keys.helperAvailable)
+        worksAtNight = defaults.bool(forKey: Keys.worksAtNight)
         isHelper = defaults.bool(forKey: Keys.helper)
         // Los `didSet` no se disparan desde el init, así que el guard hay que
         // llamarlo a mano: un ayudante ya persistido debe quedar corregido al
@@ -235,14 +247,102 @@ final class AppState {
     }
 
     /// Cambia la disponibilidad del ayudante: actualiza estado local, UserDefaults y Supabase.
-    func setHelperAvailability(_ available: Bool) {
+    /// Duraciones de turno que puede elegir el ayudante. El servidor recorta
+    /// cualquier cosa por encima de 8 h.
+    static let shiftOptions: [Int] = [2, 4, 8]
+
+    /// Hora a la que termina el turno declarado (nil si no está disponible).
+    var availableUntil: Date?
+
+    /// A partir de esta hora no se prolonga un turno salvo que el ayudante haya
+    /// declarado disponibilidad nocturna: la ubicación de noche es la que revela
+    /// el domicilio, y es el dato que más daño hace si hay una brecha.
+    private static let nightCutoffHour = 23
+
+    /// Recorta el fin de turno al corte nocturno si procede.
+    private func applyNightCutoff(_ end: Date) -> Date {
+        guard !worksAtNight else { return end }
+        let calendar = Calendar.current
+        guard let cutoff = calendar.date(
+            bySettingHour: Self.nightCutoffHour, minute: 0, second: 0, of: Date()
+        ), cutoff > Date() else { return end }
+        return min(end, cutoff)
+    }
+
+    /// Texto para la pantalla de ajustes: hasta cuándo se comparte la zona.
+    var availabilityStatusText: String? {
+        guard isHelperAvailable, let until = availableUntil else { return nil }
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return "Compartiendo tu zona aproximada hasta las \(f.string(from: until))"
+    }
+
+    /// Activa el turno durante `hours`, o lo apaga.
+    func setHelperAvailability(_ available: Bool, forHours hours: Int = 4) {
         isHelperAvailable = available
         if available {
+            let end = applyNightCutoff(Date().addingTimeInterval(TimeInterval(hours) * 3600))
+            availableUntil = end
             HelpRequestNotifier.shared.start()
+            scheduleAvailabilityReminders(until: end)
         } else {
+            availableUntil = nil
             HelpRequestNotifier.shared.stop()
+            cancelAvailabilityReminders()
         }
-        Task { await HelperService.updateAvailability(available) }
+        Task { await HelperService.updateAvailability(available, until: availableUntil) }
+    }
+
+    // MARK: Recordatorios del turno
+
+    private static let reminderID = "wheelp.availability.reminder"
+    private static let expiryID   = "wheelp.availability.expiry"
+
+    /// Avisa si el ayudante se deja el turno puesto y se va, y cuando expira.
+    ///
+    /// iOS no permite detectar de forma fiable que se cierra la app
+    /// (`applicationWillTerminate` no se llama al matarla desde el selector), así
+    /// que en vez de reaccionar al cierre se programa el aviso y se reprograma
+    /// cada vez que vuelve a abrirla. Si sigue usándola no lo ve; si se fue, le
+    /// llega. Eso es lo que impide que la disponibilidad sea un estado pasivo.
+    func scheduleAvailabilityReminders(until end: Date) {
+        cancelAvailabilityReminders()
+        let checkIn = Date().addingTimeInterval(30 * 60)
+        if checkIn < end {
+            NotificationService.schedule(
+                at: checkIn,
+                title: "¿Sigues disponible?",
+                body: "Mientras lo estés, Wheelp comparte tu zona aproximada. Abre la app para continuar o desactívalo.",
+                id: Self.reminderID
+            )
+        }
+        NotificationService.schedule(
+            at: end,
+            title: "Turno terminado",
+            body: "Ya no estás disponible y Wheelp ha dejado de compartir tu zona.",
+            id: Self.expiryID
+        )
+    }
+
+    func cancelAvailabilityReminders() {
+        NotificationService.cancel(id: Self.reminderID)
+        NotificationService.cancel(id: Self.expiryID)
+    }
+
+    /// Comprueba al abrir la app si el turno ya expiró, y reprograma el aviso si
+    /// sigue vigente. La caducidad la impone también el servidor, por si la app
+    /// no llegó a abrirse.
+    func refreshAvailabilityShift() async {
+        guard isHelper else { return }
+        let until = await HelperService.availableUntil()
+        availableUntil = until
+        if let until {
+            isHelperAvailable = true
+            scheduleAvailabilityReminders(until: until)
+        } else if isHelperAvailable {
+            isHelperAvailable = false
+            cancelAvailabilityReminders()
+        }
     }
 
     func resetPassword(email: String) async throws {

@@ -33,6 +33,33 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
     }
 
+    // MARK: - Turno del ayudante (ubicación en segundo plano)
+
+    /// Arranca el seguimiento de zona mientras el ayudante tiene turno activo.
+    ///
+    /// Usa cambios significativos (~500 m) y no ubicación continua: la
+    /// granularidad que hace falta para filtrar por radios de 5-20 km es esa, no
+    /// la métrica, y así el consumo es mucho menor y sigue funcionando con la
+    /// app cerrada. No se declara el modo de segundo plano `location` a
+    /// propósito: este servicio relanza la app sin él, y pedir más permiso del
+    /// necesario contradice la minimización.
+    func startAvailabilityTracking() {
+        guard authorizationStatus == .authorizedAlways else { return }
+        manager.startMonitoringSignificantLocationChanges()
+    }
+
+    func stopAvailabilityTracking() {
+        manager.stopMonitoringSignificantLocationChanges()
+    }
+
+    /// Sube a "Siempre" al activar el turno por primera vez, nunca en el
+    /// onboarding: pedirlo de entrada se rechaza en App Review y es señal de que
+    /// no se está minimizando.
+    func requestAlwaysAuthorizationForAvailability() {
+        guard authorizationStatus == .authorizedWhenInUse else { return }
+        manager.requestAlwaysAuthorization()
+    }
+
     // MARK: - Fix puntual bajo demanda
 
     private var pendingFixes: [CheckedContinuation<CLLocation?, Never>] = []
