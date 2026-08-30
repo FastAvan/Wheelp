@@ -38,26 +38,47 @@ final class PrecisionBoundaryTests: XCTestCase {
 
     func testLaZonaDelAyudanteEsMasBastaQueLaDeLaPeticion() {
         // La del ayudante se actualiza sola durante horas de turno, así que
-        // debe ser al menos tan gruesa como la del solicitante, que se publica
-        // una sola vez y por decisión propia.
-        let pasoAyudante = distanciaEntreCeldas(HelpCrypto.coarse)
-        let pasoPeticion = distanciaEntreCeldas(HelpCrypto.approximate)
-        XCTAssertGreaterThan(pasoAyudante, pasoPeticion)
+        // debe ser más gruesa que la del solicitante, que se publica una sola
+        // vez y por decisión propia.
+        XCTAssertGreaterThan(ladoDeCelda(HelpCrypto.coarse),
+                             ladoDeCelda(HelpCrypto.approximate))
     }
 
     func testLaCeldaDelAyudanteRondaLos2Km() {
-        // 0,02° de latitud ≈ 2,2 km. Se comprueba en metros reales, no en
-        // grados, que es lo que importa para el riesgo de reidentificación.
-        let metros = distanciaEntreCeldas(HelpCrypto.coarse) * 111_320
+        // Se comprueba en metros reales, no en grados: es lo que importa para
+        // el riesgo de reidentificación.
+        let metros = ladoDeCelda(HelpCrypto.coarse) * 111_320
         XCTAssertGreaterThan(metros, 1_500, "Una celda menor no protegería lo suficiente")
         XCTAssertLessThan(metros, 3_000, "Una celda mayor degradaría el emparejamiento")
     }
 
-    func testPuntosSeparadosUnKilometroPuedenCaerEnLaMismaCelda() {
-        // Con celda de ~2 km, dos posiciones a ~1 km deben poder colapsar.
-        let a = HelpCrypto.coarse(40.4100)
-        let b = HelpCrypto.coarse(40.4180)
-        XCTAssertEqual(a, b)
+    /// Dos posiciones dentro de la misma celda deben publicarse idénticas.
+    ///
+    /// Se toman a ambos lados del centro de una celda a propósito: puntos
+    /// cercanos que caen sobre una frontera SÍ se separan, y eso es inherente a
+    /// cualquier rejilla, no un defecto. Lo que garantiza el anonimato no es que
+    /// dos puntos cualesquiera colapsen, sino que el resultado no permita
+    /// distinguir dónde está alguien dentro de una celda de ~2 km.
+    func testDosPosicionesDeLaMismaCeldaSePublicanIguales() {
+        let centro = HelpCrypto.coarse(40.41)
+        let lado = ladoDeCelda(HelpCrypto.coarse)
+        let a = centro - lado / 4      // dentro, a la izquierda del centro
+        let b = centro + lado / 4      // dentro, a la derecha
+        XCTAssertEqual(HelpCrypto.coarse(a), HelpCrypto.coarse(b),
+                       "Dentro de la misma celda no debe poder distinguirse la posición")
+    }
+
+    /// La salida siempre cae en la rejilla, sin valores intermedios que
+    /// filtrarían precisión.
+    func testLaSalidaSiempreCaeEnLaRejilla() {
+        let lado = ladoDeCelda(HelpCrypto.coarse)
+        for paso in 0..<200 {
+            let entrada = 40.0 + Double(paso) * 0.0013   // valores arbitrarios
+            let salida = HelpCrypto.coarse(entrada)
+            let resto = (salida / lado).rounded() * lado
+            XCTAssertEqual(salida, resto, accuracy: 1e-9,
+                           "coarse(\(entrada)) devolvió \(salida), fuera de la rejilla")
+        }
     }
 
     // MARK: El camino preciso sigue siendo preciso
@@ -85,11 +106,25 @@ final class PrecisionBoundaryTests: XCTestCase {
 
     // MARK: Utilidad
 
-    /// Tamaño en grados del salto entre celdas de una función de redondeo.
-    private func distanciaEntreCeldas(_ redondear: (Double) -> Double) -> Double {
+    /// Lado de la celda, en grados: la separación entre dos SALIDAS distintas
+    /// consecutivas.
+    ///
+    /// Ojo, que es donde me equivoqué la primera vez: medir desde el centro de
+    /// una celda hasta que cambia la salida da la MEDIA celda, no la celda. Hay
+    /// que comparar salidas entre sí, no entradas contra su salida.
+    private func ladoDeCelda(_ redondear: (Double) -> Double) -> Double {
         var valor = 40.0
-        let base = redondear(valor)
-        while redondear(valor) == base && valor < 41 { valor += 0.0001 }
-        return valor - 40.0
+        let primera = redondear(valor)
+        var segunda = primera
+        while segunda == primera && valor < 41 {
+            valor += 0.0001
+            segunda = redondear(valor)
+        }
+        var tercera = segunda
+        while tercera == segunda && valor < 42 {
+            valor += 0.0001
+            tercera = redondear(valor)
+        }
+        return abs(tercera - segunda)
     }
 }
