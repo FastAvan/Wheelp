@@ -836,7 +836,9 @@ struct MapHomeView: View {
                             .font(profile.bodyFont)
                     } else {
                         ProgressView()
-                        Text("Buscando ayudante…")
+                        // Refleja el escalado: esperar sin saber si se sigue
+                        // buscando es peor que esperar.
+                        Text(model.waitingStatusText ?? "Buscando ayudante…")
                             .font(profile.bodyFont)
                     }
                     Spacer()

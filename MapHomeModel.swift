@@ -138,14 +138,37 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
+    /// Radios de búsqueda sucesivos y a los cuántos segundos de espera se pasa a
+    /// cada uno. Si nadie acepta, se amplía en vez de dejar al solicitante
+    /// mirando una pantalla sin información.
+    private static let escalationSteps: [(afterSeconds: TimeInterval, km: Int)] = [
+        (60, 10), (150, 20)
+    ]
+
+    /// Hasta dónde se ha ampliado ya la búsqueda de la petición activa.
+    private(set) var searchRadiusKm = 5
+    /// Momento en que se creó la petición, para medir la espera.
+    private var helpRequestedAt: Date?
+
+    /// Texto de estado para el solicitante mientras espera.
+    var waitingStatusText: String? {
+        guard let request = activeHelpRequest, request.status == .pending else { return nil }
+        return searchRadiusKm > 5
+            ? "Ampliando la búsqueda a \(searchRadiusKm) km…"
+            : "Buscando un ayudante cerca…"
+    }
+
     /// Sondea el estado de la petición cada 8 s hasta que termine.
     private func startHelpPolling() {
         helpPollTask?.cancel()
+        helpRequestedAt = Date()
+        searchRadiusKm = 5
         helpPollTask = Task {
             var consecutiveNilCount = 0
             while !Task.isCancelled, let current = activeHelpRequest {
                 try? await Task.sleep(for: .seconds(8))
                 guard !Task.isCancelled else { break }
+                await escalateIfStillWaiting()
                 guard let updated = await HelperService.fetch(id: current.id) else {
                     consecutiveNilCount += 1
                     // Require 3 consecutive nil responses before concluding the
@@ -172,10 +195,30 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         }
     }
 
+    /// Amplía el radio si la petición sigue sin ayudante pasado el tiempo
+    /// previsto. Solo aplica a las inmediatas: en una cita programada para
+    /// mañana no hay ninguna urgencia que justifique ensanchar la búsqueda.
+    private func escalateIfStillWaiting() async {
+        guard let request = activeHelpRequest,
+              request.status == .pending,
+              request.scheduledAt == nil,
+              let since = helpRequestedAt else { return }
+
+        let waited = Date().timeIntervalSince(since)
+        guard let step = Self.escalationSteps.last(where: { waited >= $0.afterSeconds }),
+              step.km > searchRadiusKm else { return }
+
+        if await HelperService.widenSearch(request.id, toKm: step.km) {
+            searchRadiusKm = step.km
+        }
+    }
+
     func cancelHelp() {
         guard let request = activeHelpRequest else { return }
         helpPollTask?.cancel()
         activeHelpRequest = nil
+        helpRequestedAt = nil
+        searchRadiusKm = 5
         // Cancelar borra la petición, sus mensajes y la clave de cifrado.
         Task { await HelperService.close(request.id) }
     }

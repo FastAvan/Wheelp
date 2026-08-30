@@ -467,6 +467,56 @@ enum HelperService {
         } catch { return false }
     }
 
+    /// Devuelve al grupo una petición ya aceptada, para que otro ayudante pueda
+    /// cogerla. Sin esto, quien acepta y luego no puede ir solo tiene dos
+    /// salidas: desaparecer —y dejar a alguien esperando sin saberlo— o marcarla
+    /// "Completada" sin haber ido.
+    ///
+    /// El servidor avisa a los demás ayudantes y al solicitante (send-push
+    /// reacciona a accepted/in_progress → pending). La clave local se borra: se
+    /// deriva una nueva si vuelve a aceptarse.
+    static func release(_ id: UUID) async -> Bool {
+        struct Released: Decodable { let id: UUID }
+        struct Update: Encodable {
+            let status: String
+            let helper_id: String?
+            let helper_pubkey: String?
+            let helper_payload: String?
+        }
+        do {
+            let rows: [Released] = try await supabase
+                .from(table)
+                .update(Update(
+                    status: HelpRequest.Status.pending.rawValue,
+                    helper_id: nil, helper_pubkey: nil, helper_payload: nil
+                ))
+                .eq("id", value: id)
+                .select("id")
+                .execute()
+                .value
+            guard !rows.isEmpty else { return false }
+            HelpCrypto.forget(requestId: id)
+            return true
+        } catch { return false }
+    }
+
+    /// Amplía el radio de búsqueda de una petición que sigue sin ayudante.
+    /// El UPDATE dispara el push a los ayudantes que entran con el radio nuevo.
+    static func widenSearch(_ id: UUID, toKm radius: Int) async -> Bool {
+        struct Widened: Decodable { let id: UUID }
+        do {
+            let rows: [Widened] = try await supabase
+                .from(table)
+                .update(["search_radius_km": radius])
+                .eq("id", value: id)
+                .eq("status", value: HelpRequest.Status.pending.rawValue)
+                .select("id")
+                .execute()
+                .value
+            return !rows.isEmpty
+        } catch { return false }
+    }
+
     /// Peticiones que este ayudante tiene aceptadas o en curso, ya descifradas.
     static func fetchAccepted() async -> [HelpRequest] {
         guard let userId = try? await supabase.auth.session.user.id else { return [] }
