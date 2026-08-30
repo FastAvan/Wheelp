@@ -69,6 +69,7 @@
 		AA00000000000000000000B2 /* AppStateOnboardingRestartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */; };
 		D16187174840A57B4BF115B9 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEE39C0564D31240B769B331 /* Foundation.framework */; };
 		F03507C18BF05C37A1841253 /* LocationFreshnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80413AC725FA817CB91D7DCD /* LocationFreshnessTests.swift */; };
+		FEF23F6CEDA224BBB7294303 /* AvailabilityShiftTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 861376D63F0C163030A16752 /* AvailabilityShiftTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -135,6 +136,7 @@
 		7DFCEDA52FF25A5700D2D815 /* ContributeAccessibilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContributeAccessibilityView.swift; sourceTree = "<group>"; };
 		7DFCEDA72FF25B3200D2D815 /* OSMAccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OSMAccessibilityService.swift; sourceTree = "<group>"; };
 		80413AC725FA817CB91D7DCD /* LocationFreshnessTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocationFreshnessTests.swift; sourceTree = "<group>"; };
+		861376D63F0C163030A16752 /* AvailabilityShiftTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AvailabilityShiftTests.swift; sourceTree = "<group>"; };
 		AA00000000000000000000A1 /* AppStateHelperFlagTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppStateHelperFlagTests.swift; path = AppStateHelperFlagTests.swift; sourceTree = "<group>"; };
 		AA00000000000000000000A2 /* AppStateOnboardingRestartTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = AppStateOnboardingRestartTests.swift; path = AppStateOnboardingRestartTests.swift; sourceTree = "<group>"; };
 		BEE39C0564D31240B769B331 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -262,6 +264,7 @@
 				CA091BA917EBA4EA6C51067D /* GooglePolylineTests.swift */,
 				4933819F991990D84AD311CA /* TransitLegTests.swift */,
 				80413AC725FA817CB91D7DCD /* LocationFreshnessTests.swift */,
+				861376D63F0C163030A16752 /* AvailabilityShiftTests.swift */,
 			);
 			name = WheelpTests;
 			path = WheelpTests;
@@ -451,6 +454,7 @@
 				5BD5B1DB4C42322390E0A84E /* GooglePolylineTests.swift in Sources */,
 				10F824B3F6BEAFE091D0C7C3 /* TransitLegTests.swift in Sources */,
 				F03507C18BF05C37A1841253 /* LocationFreshnessTests.swift in Sources */,
+				FEF23F6CEDA224BBB7294303 /* AvailabilityShiftTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -626,8 +630,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Wheelp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Accede a Wheelp rápidamente";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Cuando activas \"Disponible\", Wheelp guarda tu zona aproximada —no tu dirección exacta— aunque la app esté cerrada, para avisarte solo de las peticiones de ayuda cercanas. Se detiene al desactivar \"Disponible\" y no se guarda tu historial.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp usa tu ubicación para mostrarte rutas y lugares accesibles cerca de ti.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wheelp usa el micrófono para permitir búsqueda por voz a usuarios con discapacidad visual o motriz ";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wheelp usa el reconocimiento de voz para que puedas decir en voz alta a dónde quieres ir";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
@@ -690,8 +694,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Wheelp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Accede a Wheelp rápidamente";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp necesita tu ubicación para calcular rutas accesibles cercanas en tiempo real ";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Cuando activas \"Disponible\", Wheelp guarda tu zona aproximada —no tu dirección exacta— aunque la app esté cerrada, para avisarte solo de las peticiones de ayuda cercanas. Se detiene al desactivar \"Disponible\" y no se guarda tu historial.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Wheelp usa tu ubicación para mostrarte rutas y lugares accesibles cerca de ti.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Wheelp usa el micrófono para permitir búsqueda por voz a usuarios con discapacidad visual o motriz ";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Wheelp usa el reconocimiento de voz para que puedas decir en voz alta a dónde quieres ir";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;

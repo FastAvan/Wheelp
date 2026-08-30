@@ -189,7 +189,12 @@ struct MapHomeView: View {
                 speech.configureSession()
                 await model.loadSavedPlaces()
                 if appState.isHelper { myAvatarURL = await HelperService.currentAvatarURL() }
+                // Al abrir la app: confirmar si el turno sigue vigente (pudo
+                // caducar con la app cerrada) y reprogramar el recordatorio.
+                await appState.refreshAvailabilityShift()
+                syncAvailabilityTracking()
             }
+            .onChange(of: appState.isHelperAvailable) { _, _ in syncAvailabilityTracking() }
             .onChange(of: showSettings) { _, isShowing in
                 guard !isShowing, appState.isHelper else { return }
                 Task { myAvatarURL = await HelperService.currentAvatarURL() }
@@ -1446,6 +1451,10 @@ struct MapHomeView: View {
                     .frame(maxWidth: .infinity, minHeight: profile.controlMinHeight)
 
                     Button {
+                        // La app declara precisión reducida por defecto; para
+                        // guiar paso a paso hace falta la exacta, y se pide solo
+                        // aquí y solo mientras dure la ruta.
+                        Task { await location.requestFullAccuracyForNavigation() }
                         withAnimation { model.startNavigation() }
                     } label: {
                         Label("Iniciar", systemImage: "location.north.line.fill")
@@ -1583,6 +1592,17 @@ struct MapHomeView: View {
             ))
         }
         announcePreview()
+    }
+
+    /// El seguimiento de zona sigue exactamente al turno: si no hay turno
+    /// vigente, no se comparte ubicación. Es la garantía de que "disponible" y
+    /// "se comparte mi zona" son la misma cosa y no pueden desincronizarse.
+    private func syncAvailabilityTracking() {
+        if appState.isHelper && appState.isHelperAvailable {
+            location.startAvailabilityTracking()
+        } else {
+            location.stopAvailabilityTracking()
+        }
     }
 
     private func handleTransitItineraryChange() {

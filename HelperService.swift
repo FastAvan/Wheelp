@@ -182,8 +182,10 @@ enum HelperService {
             guard elapsed > 300 || moved > 200 else { return }
         }
         guard let userId = try? await supabase.auth.session.user.id else { return }
-        // Coordenadas aproximadas (~1 km) — proporcionalidad RGPD art. 5.1.c.
-        // El filtrado de ayudantes cercanos no requiere precisión exacta.
+        // Zona de ~2 km — proporcionalidad RGPD art. 5.1.c. Filtrar ayudantes en
+        // radios de 5-20 km no requiere más precisión, y esta posición se
+        // refresca sola durante horas de turno: cuanto más basta, menos permite
+        // inferir domicilio o rutinas.
         struct Update: Encodable {
             let latitude: Double
             let longitude: Double
@@ -192,8 +194,8 @@ enum HelperService {
             try await supabase
                 .from("helpers")
                 .update(Update(
-                    latitude: HelpCrypto.approximate(location.coordinate.latitude),
-                    longitude: HelpCrypto.approximate(location.coordinate.longitude)
+                    latitude: HelpCrypto.coarse(location.coordinate.latitude),
+                    longitude: HelpCrypto.coarse(location.coordinate.longitude)
                 ))
                 .eq("user_id", value: userId)
                 .execute()
@@ -205,14 +207,47 @@ enum HelperService {
     // MARK: - Disponibilidad del ayudante
 
     /// Actualiza el campo `available` en `helpers` para el ayudante actual.
-    static func updateAvailability(_ available: Bool) async {
+    /// Activa o desactiva el turno del ayudante.
+    ///
+    /// `until` es la hora declarada de fin. El servidor recorta a 8 h y apaga la
+    /// disponibilidad si llega sin turno, así que una app modificada no puede
+    /// declararse disponible indefinidamente.
+    static func updateAvailability(_ available: Bool, until: Date? = nil) async {
         guard let userId = try? await supabase.auth.session.user.id else { return }
-        struct Update: Encodable { let available: Bool }
+        struct Update: Encodable {
+            let available: Bool
+            let available_until: String?
+        }
         _ = try? await supabase
             .from("helpers")
-            .update(Update(available: available))
+            .update(Update(
+                available: available,
+                available_until: available ? until?.ISO8601Format() : nil
+            ))
             .eq("user_id", value: userId)
             .execute()
+    }
+
+    /// Hasta cuándo declaró el ayudante estar disponible (nil si no lo está).
+    static func availableUntil() async -> Date? {
+        guard let userId = try? await supabase.auth.session.user.id else { return nil }
+        struct Row: Decodable {
+            let available: Bool
+            let availableUntil: Date?
+            enum CodingKeys: String, CodingKey {
+                case available
+                case availableUntil = "available_until"
+            }
+        }
+        let row: Row? = try? await supabase
+            .from("helpers")
+            .select("available,available_until")
+            .eq("user_id", value: userId)
+            .single()
+            .execute()
+            .value
+        guard let row, row.available, let until = row.availableUntil, until > Date() else { return nil }
+        return until
     }
 
     /// Disponibilidad guardada en Supabase. `nil` = no se pudo saber (401, red

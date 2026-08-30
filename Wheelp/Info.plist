@@ -12,6 +12,23 @@
 	     con esa key a YES Apple exige también ITSEncryptionExportComplianceCode y
 	     rechaza la entrega al no encontrarlo. La declaración se hace en App Store
 	     Connect, por build, que es donde Apple la espera. -->
+	<!-- Precisión reducida a nivel de sistema (~1-3 km) para la ubicación del
+	     ayudante. No basta con redondear en el servidor: así la minimización
+	     deja de ser una promesa nuestra y pasa a ser una restricción que impone
+	     iOS y que el ayudante puede comprobar. Además permite declarar Coarse
+	     Location —y no Precise— en la ficha de privacidad de App Store.
+	     Para calcular rutas se pide precisión completa puntualmente, con
+	     requestTemporaryFullAccuracyAuthorization. -->
+	<key>NSLocationDefaultAccuracyReduced</key>
+	<true/>
+	<!-- Precisión completa temporal, solo para guiar paso a paso. Con la
+	     precisión reducida por defecto (1-3 km) la navegación no serviría, y
+	     es la función principal para el usuario con discapacidad. -->
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>Navegacion</key>
+		<string>Para guiarte paso a paso durante el trayecto, Wheelp necesita tu ubicación exacta mientras dura la ruta.</string>
+	</dict>
 	<key>NSServices</key>
 	<array>
 		<dict/>

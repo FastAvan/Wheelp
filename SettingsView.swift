@@ -6,6 +6,8 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
     @State private var previewSpeech = SpeechAnnouncer()
+    /// Para pedir "Siempre" justo al activar el turno, nunca antes.
+    @State private var location = LocationManager()
 
     var body: some View {
         NavigationStack {
@@ -45,6 +47,21 @@ struct SettingsView: View {
         // para que SwiftUI gestione el ciclo de vida del task correctamente y no
         // lo reinicie en cada re-render de body.
         .sheet(isPresented: $showTerms) { TermsView() }
+        .confirmationDialog(
+            "¿Cuánto tiempo vas a estar disponible?",
+            isPresented: $showShiftPicker,
+            titleVisibility: .visible
+        ) {
+            ForEach(AppState.shiftOptions, id: \.self) { horas in
+                Button("\(horas) horas") {
+                    location.requestAlwaysAuthorizationForAvailability()
+                    appState.setHelperAvailability(true, forHours: horas)
+                }
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: {
+            Text("Mientras estés disponible, Wheelp comparte tu zona aproximada para avisarte de peticiones cercanas. Se detiene sola al terminar el turno.")
+        }
         .sheet(isPresented: $showAdminApplications) { AdminApplicationsView() }
         .alert("Eliminar cuenta permanentemente", isPresented: $showDeleteConfirmation) {
             Button("Eliminar", role: .destructive) {
@@ -301,6 +318,8 @@ struct SettingsView: View {
     @State private var showDeleteConfirmation = false
     @State private var showDeleteError = false
     @State private var showTerms = false
+    /// Selector de duración del turno al activar la disponibilidad.
+    @State private var showShiftPicker = false
     @State private var showAdminApplications = false
     private var helperSection: some View {
         Section {
@@ -313,11 +332,36 @@ struct SettingsView: View {
             }
             Toggle(isOn: Binding(
                 get: { appState.isHelperAvailable },
-                set: { appState.setHelperAvailability($0) }
+                // Activar abre el selector de turno; desactivar es inmediato.
+                set: { activar in
+                    if activar { showShiftPicker = true }
+                    else { appState.setHelperAvailability(false) }
+                }
             )) {
                 Label("Disponible para ayudar", systemImage: "hand.raised.circle.fill")
             }
             .tint(Color.wheelpGreen)
+
+            // Transparencia: qué se está compartiendo y hasta cuándo. Cumple el
+            // deber de información de forma que ningún texto legal cumple, y es
+            // la diferencia entre un ayudante que confía y uno que denuncia.
+            if let estado = appState.availabilityStatusText {
+                Label(estado, systemImage: "location.circle")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Text("Zona de unos 2 km, nunca tu dirección exacta. Solo se guarda la actual, sin historial.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Toggle(isOn: Binding(
+                get: { appState.worksAtNight },
+                set: { appState.worksAtNight = $0 }
+            )) {
+                Label("También de noche", systemImage: "moon.fill")
+            }
+            .tint(Color.wheelpGreen)
+            .accessibilityHint("Si está desactivado, tu turno no se prolonga más allá de las 23:00.")
             // Foto de perfil del ayudante.
             HStack(spacing: 12) {
                 HelperAvatarView(url: helperAvatarURL, size: 52, localImage: localAvatarImage)

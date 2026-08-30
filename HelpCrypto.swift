@@ -137,6 +137,20 @@ enum HelpCrypto {
         (value * 100).rounded() / 100
     }
 
+    /// Rejilla más gruesa (~2 km) para la zona del ayudante mientras tiene turno.
+    ///
+    /// Es más basta que `approximate` a propósito: la del solicitante se publica
+    /// una vez y por su propia petición, mientras que la del ayudante se
+    /// actualiza sola durante horas, y ahí el riesgo de inferir su domicilio o
+    /// sus rutinas es mucho mayor. 0,02° son ~2,2 km en latitud y ~1,7 km en
+    /// longitud a la altura de Madrid.
+    ///
+    /// La pérdida de precisión se compensa sumando `gridPaddingKm` al radio de
+    /// búsqueda: mejor avisar a alguno de más que perder a quien sí podía ayudar.
+    static func coarse(_ value: Double) -> Double {
+        (value * 50).rounded() / 50
+    }
+
     // MARK: - Código de verificación del encuentro
 
     /// Código de 6 dígitos derivado de la clave simétrica compartida mediante HMAC.
