@@ -171,11 +171,19 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
                 await escalateIfStillWaiting()
                 guard let updated = await HelperService.fetch(id: current.id) else {
                     consecutiveNilCount += 1
-                    // Require 3 consecutive nil responses before concluding the
-                    // session ended — a single nil is indistinguishable from a
-                    // network blip, and calling forget() on a live session is
-                    // unrecoverable.
-                    if current.status == .accepted, consecutiveNilCount >= 3 {
+                    // Hacen falta 3 nil seguidos antes de dar la sesión por
+                    // terminada: un nil suelto no se distingue de un corte de
+                    // red, y llamar a forget() sobre una sesión viva no tiene
+                    // vuelta atrás.
+                    //
+                    // Antes esto exigía además `current.status == .accepted`, y
+                    // ahí estaba el fallo: el ayudante solo puede marcar
+                    // "Completada" DESPUÉS de "Comenzar trayecto", que deja la
+                    // petición en .inProgress. Así que el estado nunca era
+                    // .accepted al terminar y la pantalla del solicitante se
+                    // quedaba colgada para siempre. La desaparición de la fila
+                    // ES el fin de la ayuda, venga del estado que venga.
+                    if consecutiveNilCount >= 3 {
                         HelpCrypto.forget(requestId: current.id)
                         activeHelpRequest = nil
                         break
