@@ -289,7 +289,7 @@ struct SettingsView: View {
         }
     }
 
-    private var isAdmin: Bool { appState.userName == "aelguer@icloud.com" }
+    private var isAdmin: Bool { appState.isAdmin }
 
     private var adminSection: some View {
         Section {

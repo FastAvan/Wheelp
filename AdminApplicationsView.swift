@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Pantalla de administración para revisar solicitudes de ayudante pendientes.
-/// Solo accesible desde la cuenta de administrador (aelguer@icloud.com).
+/// Solo accesible para quien esté en la tabla `admins` (ver `is_admin()`).
 struct AdminApplicationsView: View {
     @State private var applications: [HelperApplication] = []
     @State private var isLoading = true

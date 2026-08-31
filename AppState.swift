@@ -107,6 +107,10 @@ final class AppState {
         didSet { defaults.set(worksAtNight, forKey: Keys.worksAtNight) }
     }
 
+    /// Admin: lo dice el servidor en cada sesión y NO se persiste. Un flag de
+    /// autorización guardado en el dispositivo es un flag que se puede editar.
+    var isAdmin = false
+
     var isHelperAvailable: Bool {
         didSet { defaults.set(isHelperAvailable, forKey: Keys.helperAvailable) }
     }
@@ -148,6 +152,13 @@ final class AppState {
     private func refreshHelperStatus() async {
         if let registered = await HelperService.isRegisteredHelper() {
             isHelper = registered
+        }
+        // Antes esto era una comparación con el correo del admin, a fuego y
+        // repetida en los tres caminos de inicio de sesión. Ahora hay un solo
+        // sitio y la fuente es la tabla admins.
+        if let admin = await HelperService.isAdmin() {
+            isAdmin = admin
+            if admin { AdminNotifier.shared.start() }
         }
         guard isHelper else { return }
         if let available = await HelperService.fetchAvailability() {
@@ -200,7 +211,6 @@ final class AppState {
             isSignedIn = true
             userName = session.user.email
             Task { @MainActor in await refreshHelperStatus() }
-            if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
         }
     }
 
@@ -224,7 +234,6 @@ final class AppState {
         userName = supabase.auth.currentSession?.user.email ?? email
         isSignedIn = true
         await refreshHelperStatus()
-        if userName == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
 
     func resendLoginOTP(email: String) async throws {
@@ -253,7 +262,6 @@ final class AppState {
         userName = session.user.email
         isSignedIn = true
         await refreshHelperStatus()
-        if session.user.email == "aelguer@icloud.com" { AdminNotifier.shared.start() }
     }
 
     /// Cambia la disponibilidad del ayudante: actualiza estado local, UserDefaults y Supabase.
@@ -425,6 +433,7 @@ final class AppState {
         isHelper = false
         hasCompletedOnboarding = false
         disabilityType = nil
+        isAdmin = false
         displayName = ""
         trustedContactPhone = ""
         hasAcceptedTerms = false
