@@ -56,3 +56,75 @@ jobs:
             exit 0
           fi
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls.sql
+
+  # Entrega continua: cada push a main que pase el build Y las pruebas de
+  # autorización sale a TestFlight. El `needs` no es decoración — hoy hemos
+  # visto que algo puede estar roto en producción y parecer que funciona, así
+  # que una build no se distribuye sin las dos puertas en verde.
+  #
+  # No hacen falta certificados ni perfiles como secretos: la clave de API tiene
+  # rol Admin, así que -allowProvisioningUpdates usa los certificados de
+  # distribución que gestiona Apple. Un secreto menos que rotar, y menos
+  # material criptográfico rondando un repositorio público.
+  testflight:
+    needs: [build-and-validate, rls]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # el número de build sale del recuento de commits
+
+      - name: Select Xcode 26.3
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+
+      - name: Colocar la clave de App Store Connect
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/private_keys/AuthKey_$ASC_KEY_ID.p8
+          chmod 600 ~/private_keys/AuthKey_$ASC_KEY_ID.p8
+
+      - name: Calcular número de build
+        id: version
+        run: |
+          # El recuento de commits es monótono, que es lo único que exige App
+          # Store Connect. El desfase de 100 existe porque las subidas manuales
+          # de agosto llegaron a la 126 y un número repetido o menor se rechaza.
+          echo "build=$(( 100 + $(git rev-list --count HEAD) ))" >> "$GITHUB_OUTPUT"
+
+      - name: Archivar
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -workspace Wheelp.xcworkspace \
+            -scheme Wheelp \
+            -destination "generic/platform=iOS" \
+            -archivePath "$RUNNER_TEMP/Wheelp.xcarchive" \
+            CURRENT_PROJECT_VERSION=${{ steps.version.outputs.build }} \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Subir a TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Wheelp.xcarchive" \
+            -exportOptionsPlist ci/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Borrar la clave
+        if: always()
+        run: rm -rf ~/private_keys
