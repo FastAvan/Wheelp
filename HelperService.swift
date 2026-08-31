@@ -276,6 +276,15 @@ enum HelperService {
     /// (401 por token caducado, red caída, 500…). Quien llame NO debe tratar el
     /// `nil` como "no es ayudante": eso degradaba a un ayudante real a usuario
     /// normal ante cualquier fallo transitorio.
+    /// ¿La persona que ha iniciado sesión es admin? Lo decide el servidor, no el
+    /// cliente: aquí solo se usa para enseñar o esconder la pantalla de
+    /// solicitudes. La autorización de verdad la imponen RLS y is_admin().
+    /// `nil` = no se pudo consultar; el llamante conserva lo que ya tenía.
+    static func isAdmin() async -> Bool? {
+        do { return try await supabase.rpc("is_admin").execute().value }
+        catch { return nil }
+    }
+
     static func isRegisteredHelper() async -> Bool? {
         struct Row: Codable { let userId: UUID
             enum CodingKeys: String, CodingKey { case userId = "user_id" }
@@ -588,7 +597,9 @@ enum HelperService {
     /// Acepta una petición: genera claves, cifra el nombre del ayudante y
     /// publica la clave pública para que el solicitante responda cifrado.
     static func accept(_ request: HelpRequest, helperName: String?) async -> Bool {
-        guard let userId = try? await supabase.auth.session.user.id else { return false }
+        // Quién acepta lo decide el servidor con auth.uid(); aquí solo se
+        // comprueba que hay sesión antes de gastar una clave nueva.
+        guard (try? await supabase.auth.session.user.id) != nil else { return false }
 
         let privateKey = Curve25519.KeyAgreement.PrivateKey()
         guard let key = HelpCrypto.symmetricKey(
@@ -599,27 +610,28 @@ enum HelperService {
             return false
         }
         do {
-            // El .eq("status","pending") evita pisar una petición ya aceptada, pero
-            // si otro ayudante se adelantó el UPDATE afecta a CERO filas y PostgREST
-            // responde 200 sin error. Sin comprobar las filas devueltas, los dos
-            // ayudantes creerían tener la petición y uno saldría hacia un encuentro
-            // que el solicitante no sabe que existe. Por eso se pide .select() y se
-            // exige exactamente una fila.
-            struct AcceptedRow: Decodable { let id: UUID }
-            let accepted: [AcceptedRow] = try await supabase
-                .from(table)
-                .update([
-                    "status": HelpRequest.Status.accepted.rawValue,
-                    "helper_id": userId.uuidString,
-                    "helper_pubkey": privateKey.publicKey.rawRepresentation.base64EncodedString(),
-                    "helper_payload": payload
-                ])
-                .eq("id", value: request.id)
-                .eq("status", value: HelpRequest.Status.pending.rawValue)
-                .select("id")
+            // Aceptar va por RPC, no por UPDATE directo, y no es un capricho:
+            // Postgres exige política de SELECT también para un `UPDATE ... WHERE`,
+            // porque la orden tiene que leer la fila para localizarla. Como el
+            // ayudante NO puede leer una petición que todavía no ha aceptado —se
+            // cerró a propósito, dentro va el tipo de discapacidad—, el UPDATE
+            // afectaba a cero filas y PostgREST devolvía 200 sin error: aceptar
+            // fallaba en silencio. La función resuelve además la carrera entre dos
+            // ayudantes en el servidor, y devuelve false a quien llegó tarde.
+            struct Aceptar: Encodable {
+                let p_id: UUID
+                let p_helper_pubkey: String
+                let p_helper_payload: String
+            }
+            let gane: Bool = try await supabase
+                .rpc("aceptar_peticion", params: Aceptar(
+                    p_id: request.id,
+                    p_helper_pubkey: privateKey.publicKey.rawRepresentation.base64EncodedString(),
+                    p_helper_payload: payload
+                ))
                 .execute()
                 .value
-            guard !accepted.isEmpty else { return false }
+            guard gane else { return false }
             // Save key only after the update is confirmed, to avoid leaving a
             // dangling key if the update fails or races with another accept.
             HelpCrypto.savePrivateKey(privateKey, for: request.id)

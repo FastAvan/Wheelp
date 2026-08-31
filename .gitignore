@@ -6,3 +6,6 @@ xcuserdata/
 build/
 DerivedData/
 ID Keys/
+
+# Artefactos de la CLI de Supabase
+supabase/.temp/

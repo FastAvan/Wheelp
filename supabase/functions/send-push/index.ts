@@ -4,7 +4,6 @@ const BUNDLE_ID = "fastavan.wheelp";
 const APNS_HOST = Deno.env.get("APNS_ENVIRONMENT") === "production"
   ? "https://api.push.apple.com"
   : "https://api.sandbox.push.apple.com";
-const ADMIN_EMAIL = "aelguer@icloud.com";
 const NEARBY_RADIUS_KM = 5;
 const APNS_FETCH_TIMEOUT_MS = 5000;
 
@@ -174,9 +173,10 @@ Deno.serve(async (req) => {
     body = "Tienes un mensaje nuevo en Wheelp";
 
   } else if (table === "helper_applications" && type === "INSERT") {
-    const { data } = await supabase.auth.admin.listUsers();
-    const admin = data?.users?.find((u: any) => u.email === ADMIN_EMAIL);
-    if (admin) userIds = [admin.id];
+    // Quién es admin lo dice la tabla admins, no una cadena aquí. Además evita
+    // listar TODOS los usuarios para encontrar a uno.
+    const { data: admins } = await supabase.from("admins").select("user_id");
+    userIds = (admins ?? []).map((a: any) => a.user_id);
     title = "Nueva solicitud de ayudante";
     body = record.display_name
       ? `${record.display_name} quiere unirse como ayudante`

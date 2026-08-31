@@ -38,3 +38,21 @@ jobs:
 
       - name: Validate crypto protocol (standalone)
         run: swift scripts/validate.swift
+
+  # Las puertas de autorización no se pueden probar desde XCTest sin red: viven
+  # en Postgres. Job aparte y en Ubuntu porque ahí psql ya viene instalado.
+  # Se salta solo si no hay secreto configurado, para que un fork no falle.
+  rls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probar RLS y puertas de auth
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::Sin SUPABASE_DB_URL: las pruebas de autorización NO se han ejecutado"
+            exit 0
+          fi
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls.sql
