@@ -15,7 +15,7 @@ conservación los fija asesoría legal.
 
 | | |
 |---|---|
-| Datos de categoría especial (art. 9) | **Sí** — tipo de discapacidad, en dos tablas |
+| Datos de categoría especial (art. 9) | **Sí** — tipo de discapacidad, solo por petición y mientras dura |
 | Datos biométricos / documento de identidad | **Sí** — verificación de ayudantes, vía Didit |
 | Geolocalización | **Sí** — aproximada; la del ayudante también en segundo plano |
 | Menores | No — la app es para adultos |
@@ -29,17 +29,19 @@ conservación los fija asesoría legal.
 
 Se almacena en **dos sitios distintos**, con sensibilidad muy diferente:
 
-### `profiles.disability_type` — el más sensible
+### `profiles` — ya no guarda el tipo de discapacidad
 
-Columnas: `id, username, first_name, last_name, email, disability_type,
-onboarding_completed, created_at`
+Columnas: `id, username, first_name, last_name, email, onboarding_completed,
+created_at`
 
-Es un registro **permanente** que une el tipo de discapacidad a una persona
-**identificada por nombre, apellidos y correo**. No caduca ni se borra al
-terminar un trayecto.
-
-Quién lo lee: solo la propia persona (RLS `leer_propio_perfil`, restringido a
-`auth.uid()`).
+> Hasta el 31/08/2026 existía `profiles.disability_type`: un registro
+> **permanente** que unía el tipo de discapacidad a una persona identificada por
+> nombre, apellidos y correo. Verificado en producción antes de borrarla: 0
+> filas con valor, ningún trigger que la rellenase, ninguna lectura desde la
+> app —el tipo vive en `UserDefaults` y nunca sale del dispositivo—. Era el
+> tratamiento más sensible del sistema sin ninguna finalidad, así que se
+> eliminó la columna en vez de declararla (migración
+> `20260902000000_borrar_disability_type_de_profiles.sql`).
 
 ### `help_requests.disability_type` — por petición
 

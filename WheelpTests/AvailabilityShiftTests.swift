@@ -12,6 +12,7 @@ final class AvailabilityShiftTests: XCTestCase {
         // Cada test parte de UserDefaults limpio para las claves implicadas.
         UserDefaults.standard.removeObject(forKey: "wheelp.helperAvailable")
         UserDefaults.standard.removeObject(forKey: "wheelp.worksAtNight")
+        UserDefaults.standard.removeObject(forKey: "wheelp.helperShiftNoticeSeen")
         let state = AppState()
         state.isHelper = true
         return state
@@ -79,6 +80,18 @@ final class AvailabilityShiftTests: XCTestCase {
 
         guard let until = state.availableUntil else { return XCTFail("Debe haber hora de fin") }
         XCTAssertEqual(until.timeIntervalSince(antes) / 3600, 8, accuracy: 0.05)
+    }
+
+    /// El aviso de qué se comparte durante un turno se muestra ANTES del primer
+    /// turno, y solo una vez. Si el flag arrancase en true, el ayudante
+    /// empezaría a compartir su zona sin que nadie le hubiera informado, que es
+    /// justo lo que el art. 13 no permite.
+    func testElAvisoDelTurnoNoSeDaPorVistoDeEntrada() {
+        let state = nuevoEstado()
+        XCTAssertFalse(state.hasSeenHelperShiftNotice)
+
+        state.hasSeenHelperShiftNotice = true
+        XCTAssertTrue(AppState().hasSeenHelperShiftNotice, "Debe persistir: no se repite en cada arranque")
     }
 
     func testLasOpcionesDeTurnoNoSuperanElTopeDelServidor() {

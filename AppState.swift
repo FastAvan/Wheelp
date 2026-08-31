@@ -111,6 +111,14 @@ final class AppState {
         didSet { defaults.set(isHelperAvailable, forKey: Keys.helperAvailable) }
     }
 
+    /// El ayudante ya ha visto el aviso de qué se comparte durante un turno.
+    /// No es un consentimiento (la base es el art. 6.1.b), sino la prueba de que
+    /// la información se facilitó ANTES del tratamiento, que es lo que exige el
+    /// art. 13 RGPD.
+    var hasSeenHelperShiftNotice: Bool {
+        didSet { defaults.set(hasSeenHelperShiftNotice, forKey: Keys.helperShiftNotice) }
+    }
+
     /// El usuario ha aceptado los términos y condiciones (persiste en UserDefaults).
     var hasAcceptedTerms: Bool {
         didSet { defaults.set(hasAcceptedTerms, forKey: Keys.termsAccepted) }
@@ -131,6 +139,7 @@ final class AppState {
         static let helperAvailable = "wheelp.helperAvailable"
         static let worksAtNight = "wheelp.worksAtNight"
         static let helper = "wheelp.isHelper"
+        static let helperShiftNotice = "wheelp.helperShiftNoticeSeen"
     }
 
     /// Consulta el estado de ayudante y lo aplica SOLO si el servidor respondió.
@@ -165,6 +174,7 @@ final class AppState {
         // lo confirma el servidor en refreshAvailabilityShift().
         isHelperAvailable = defaults.bool(forKey: Keys.helperAvailable)
         worksAtNight = defaults.bool(forKey: Keys.worksAtNight)
+        hasSeenHelperShiftNotice = defaults.bool(forKey: Keys.helperShiftNotice)
         isHelper = defaults.bool(forKey: Keys.helper)
         // Los `didSet` no se disparan desde el init, así que el guard hay que
         // llamarlo a mano: un ayudante ya persistido debe quedar corregido al
