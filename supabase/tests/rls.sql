@@ -27,19 +27,20 @@ BEGIN;
 CREATE TEMP TABLE t (nombre text, ok boolean);
 
 DO $$
-DECLARE v_pide uuid; v_ayuda uuid; v_tercero uuid; v_admin uuid; v_peticion uuid := gen_random_uuid();
+DECLARE v_pide uuid; v_ayuda uuid; v_ayuda2 uuid; v_tercero uuid; v_admin uuid; v_peticion uuid := gen_random_uuid();
 BEGIN
     SELECT user_id INTO v_admin FROM public.admins LIMIT 1;
     SELECT id INTO v_pide    FROM auth.users WHERE id <> v_admin ORDER BY created_at LIMIT 1;
     SELECT id INTO v_ayuda   FROM auth.users WHERE id NOT IN (v_admin, v_pide) ORDER BY created_at LIMIT 1;
-    SELECT id INTO v_tercero FROM auth.users WHERE id NOT IN (v_admin, v_pide, v_ayuda) ORDER BY created_at LIMIT 1;
+    SELECT id INTO v_ayuda2  FROM auth.users WHERE id NOT IN (v_admin, v_pide, v_ayuda) ORDER BY created_at LIMIT 1;
+    SELECT id INTO v_tercero FROM auth.users WHERE id NOT IN (v_admin, v_pide, v_ayuda, v_ayuda2) ORDER BY created_at LIMIT 1;
 
     IF v_tercero IS NULL THEN
-        RAISE EXCEPTION 'Hacen falta al menos 4 usuarios para estas pruebas';
+        RAISE EXCEPTION 'Hacen falta al menos 5 usuarios para estas pruebas';
     END IF;
 
     CREATE TEMP TABLE actores AS
-        SELECT v_pide AS pide, v_ayuda AS ayuda, v_tercero AS tercero,
+        SELECT v_pide AS pide, v_ayuda AS ayuda, v_ayuda2 AS ayuda2, v_tercero AS tercero,
                v_admin AS admin, v_peticion AS peticion;
 
     -- El ayudante existe y está disponible; el tercero no es ayudante.
@@ -48,6 +49,10 @@ BEGIN
             extensions.st_setsrid(extensions.st_point(-3.70, 40.42), 4326)::extensions.geography)
     ON CONFLICT (user_id) DO UPDATE
         SET available = true, available_until = now() + interval '2 hours';
+
+    INSERT INTO public.helpers (user_id, available, available_until)
+    VALUES (v_ayuda2, true, now() + interval '2 hours')
+    ON CONFLICT (user_id) DO UPDATE SET available = true;
 
     INSERT INTO public.help_requests
         (id, requester_id, disability_type, status, place_name, requester_pubkey,
@@ -124,7 +129,7 @@ DO $$ DECLARE bloqueado boolean := false; BEGIN
 END $$;
 
 -- ============================================================
--- 6. Aceptar dos veces: solo gana quien llega primero
+-- 5. Aceptar: hace falta ser ayudante, y solo gana el primero
 -- ============================================================
 -- Como el ayudante, no como superusuario: guard_helper_id exige que quien pone
 -- helper_id sea esa misma persona, así que sin identidad la prueba mide otra
@@ -145,16 +150,16 @@ DO $$ DECLARE bloqueado boolean := false; BEGIN
     INSERT INTO t VALUES ('el primero en aceptar se la queda',
                           public.aceptar_peticion((SELECT peticion FROM actores), 'pk', 'payload'));
 
-    -- Segundo ayudante sobre la misma petición: ya no está pendiente, así que
-    -- no llega ni a tocar la fila.
+    -- Segundo ayudante DE VERDAD sobre la misma petición: tiene permiso para
+    -- aceptar, pero ya no está pendiente. Debe enterarse (false), no reventar.
     EXECUTE format('set local request.jwt.claims to %L',
-                   json_build_object('sub', (SELECT tercero FROM actores), 'role', 'authenticated')::text);
+                   json_build_object('sub', (SELECT ayuda2 FROM actores), 'role', 'authenticated')::text);
     INSERT INTO t VALUES ('el segundo ayudante llega tarde y lo sabe',
                           public.aceptar_peticion((SELECT peticion FROM actores), 'pk', 'payload') = false);
 END $$;
 
 -- ============================================================
--- 5. La petición es inmutable (hallazgo 2 del audit)
+-- 6. La petición es inmutable (hallazgo 2 del audit)
 -- ============================================================
 RESET ROLE;
 DO $$ DECLARE bloqueado boolean := false; BEGIN
