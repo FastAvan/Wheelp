@@ -159,13 +159,38 @@ DO $$ DECLARE bloqueado boolean := false; BEGIN
 END $$;
 
 -- ============================================================
+-- 5b. El ayudante puede cerrar la sesión ya empezada
+-- ============================================================
+-- El "Completada" del ayudante borra la fila, y la desaparición de la fila es
+-- lo que le dice al solicitante que la ayuda ha terminado. Si el DELETE no
+-- pasara, la pantalla del solicitante se quedaría colgada sin que nadie se
+-- entere: no hay error visible en ningún lado.
+DO $$ DECLARE n int; BEGIN
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT ayuda FROM actores), 'role', 'authenticated')::text);
+    UPDATE public.help_requests SET status = 'in_progress'
+     WHERE id = (SELECT peticion FROM actores);
+    GET DIAGNOSTICS n = ROW_COUNT;
+    INSERT INTO t VALUES ('el ayudante puede empezar el trayecto', n = 1);
+
+    DELETE FROM public.help_requests WHERE id = (SELECT peticion FROM actores);
+    GET DIAGNOSTICS n = ROW_COUNT;
+    INSERT INTO t VALUES ('el ayudante puede cerrar la sesion empezada', n = 1);
+END $$;
+
+-- ============================================================
 -- 6. La petición es inmutable (hallazgo 2 del audit)
 -- ============================================================
 RESET ROLE;
-DO $$ DECLARE bloqueado boolean := false; BEGIN
+DO $$ DECLARE bloqueado boolean := false; v_otra uuid := gen_random_uuid(); BEGIN
+    -- Petición nueva: la anterior la cerró el ayudante en 5b.
+    INSERT INTO public.help_requests
+        (id, requester_id, disability_type, status, place_name, requester_pubkey,
+         area_latitude, area_longitude)
+    VALUES (v_otra, (SELECT pide FROM actores), 'visual', 'pending', 'PRUEBA RLS 2', 'x', 40.42, -3.70);
     BEGIN
         UPDATE public.help_requests SET requester_id = (SELECT ayuda FROM actores)
-        WHERE id = (SELECT peticion FROM actores);
+        WHERE id = v_otra;
     EXCEPTION WHEN insufficient_privilege THEN bloqueado := true;
     END;
     INSERT INTO t VALUES ('requester_id es inmutable', bloqueado);
