@@ -66,6 +66,11 @@ jobs:
   # rol Admin, así que -allowProvisioningUpdates usa los certificados de
   # distribución que gestiona Apple. Un secreto menos que rotar, y menos
   # material criptográfico rondando un repositorio público.
+  #
+  # El precio de eso es que cada ejecución se deja un certificado de desarrollo
+  # tirado en la cuenta, y el cupo es compartido por todas las apps: el 3 de
+  # septiembre se llenó y dejaron de archivar Wheelp y Clickwheel a la vez. Por
+  # eso se limpian los anteriores antes de archivar.
   testflight:
     needs: [build-and-validate, rls]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -86,6 +91,16 @@ jobs:
           mkdir -p ~/private_keys
           printf '%s' "$ASC_KEY_P8" > ~/private_keys/AuthKey_$ASC_KEY_ID.p8
           chmod 600 ~/private_keys/AuthKey_$ASC_KEY_ID.p8
+
+      # Sin esto el cupo de certificados de la cuenta se llena en unas ocho runs
+      # y dejan de archivar todas las apps. El detalle está en el script.
+      - name: Revocar certificados desechables de runs anteriores
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          pip3 install --quiet --break-system-packages pyjwt cryptography
+          python3 ci/revoke_stale_certs.py
 
       - name: Calcular número de build
         id: version
