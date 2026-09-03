@@ -62,10 +62,15 @@ jobs:
   # visto que algo puede estar roto en producción y parecer que funciona, así
   # que una build no se distribuye sin las dos puertas en verde.
   #
-  # No hacen falta certificados ni perfiles como secretos: la clave de API tiene
-  # rol Admin, así que -allowProvisioningUpdates usa los certificados de
-  # distribución que gestiona Apple. Un secreto menos que rotar, y menos
-  # material criptográfico rondando un repositorio público.
+  # La firma usa una identidad fija guardada en secrets. Antes se apoyaba en
+  # -allowProvisioningUpdates para no tener material criptográfico en un repo
+  # público, pero en un runner efímero eso encuentra el llavero vacío y pide a
+  # Apple un certificado de desarrollo nuevo en CADA ejecución. El cupo es de la
+  # cuenta entera, así que el 3 de septiembre se agotó y dejaron de archivar
+  # tanto Wheelp como Clickwheel.
+  #
+  # El .p12 va cifrado como secret: GitHub no los expone a workflows de PRs
+  # desde forks, y este job solo corre en push a main.
   testflight:
     needs: [build-and-validate, rls]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -77,6 +82,36 @@ jobs:
 
       - name: Select Xcode 26.3
         run: sudo xcode-select -s /Applications/Xcode_26.3.app
+
+      - name: Importar identidad de firma
+        env:
+          DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+          DIST_PROFILE: ${{ secrets.DIST_PROFILE }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+          printf '%s' "$DIST_CERT_P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KEYCHAIN" -P "$DIST_CERT_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          rm -f "$RUNNER_TEMP/dist.p12"
+
+          # Xcode 16 movió la carpeta de perfiles; se instala en las dos por si acaso.
+          for dir in ~/Library/MobileDevice/Provisioning\ Profiles \
+                     ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles; do
+            mkdir -p "$dir"
+            printf '%s' "$DIST_PROFILE" | base64 --decode > "$dir/wheelp.mobileprovision"
+          done
+
+          security find-identity -v -p codesigning "$KEYCHAIN"
 
       - name: Colocar la clave de App Store Connect
         env:
@@ -96,9 +131,6 @@ jobs:
           echo "build=$(( 100 + $(git rev-list --count HEAD) ))" >> "$GITHUB_OUTPUT"
 
       - name: Archivar
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild archive \
             -workspace Wheelp.xcworkspace \
@@ -106,10 +138,11 @@ jobs:
             -destination "generic/platform=iOS" \
             -archivePath "$RUNNER_TEMP/Wheelp.xcarchive" \
             CURRENT_PROJECT_VERSION=${{ steps.version.outputs.build }} \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="Wheelp App Store CI" \
+            DEVELOPMENT_TEAM=967AMV9QSH \
+            OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/build.keychain-db"
 
       - name: Subir a TestFlight
         env:
@@ -120,11 +153,12 @@ jobs:
             -archivePath "$RUNNER_TEMP/Wheelp.xcarchive" \
             -exportOptionsPlist ci/ExportOptions.plist \
             -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
             -authenticationKeyPath ~/private_keys/AuthKey_$ASC_KEY_ID.p8 \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 
       - name: Borrar la clave
         if: always()
-        run: rm -rf ~/private_keys
+        run: |
+          rm -rf ~/private_keys
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true

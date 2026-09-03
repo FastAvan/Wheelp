@@ -12,5 +12,16 @@
 	<string>967AMV9QSH</string>
 	<key>uploadSymbols</key>
 	<true/>
+	<!-- Firma manual con la identidad que el job importa en un llavero temporal.
+	     Automática pediría un certificado nuevo a Apple en cada ejecución. -->
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>signingCertificate</key>
+	<string>Apple Distribution</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>fastavan.wheelp</key>
+		<string>Wheelp App Store CI</string>
+	</dict>
 </dict>
 </plist>
