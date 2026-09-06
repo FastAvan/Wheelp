@@ -102,6 +102,14 @@ struct AdminApplicationsView: View {
                     .padding(.top, 2)
             }
 
+            // Resultado de la última comprobación contra Didit. nil = todavía
+            // no se ha intentado aprobar, así que no se ha comprobado nada.
+            if let kyc = app.kycStatus {
+                Label(kycLabel(kyc), systemImage: kycIcon(kyc))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(kyc == "Approved" ? Color.wheelpGreen : .orange)
+            }
+
             HStack(spacing: 10) {
                 Button(role: .destructive) {
                     Task { await reject(app) }
@@ -137,11 +145,25 @@ struct AdminApplicationsView: View {
 
     private func approve(_ app: HelperApplication) async {
         actionError = nil
-        if await HelperService.approveApplication(id: app.id) {
-            withAnimation { applications.removeAll { $0.id == app.id } }
+        if let failure = await HelperService.approveApplication(id: app.id) {
+            actionError = failure
+            await load()   // recarga para ver el kyc_status que el servidor acaba de escribir
         } else {
-            actionError = "No se pudo aprobar. Comprueba que las funciones SQL estén creadas en Supabase."
+            withAnimation { applications.removeAll { $0.id == app.id } }
         }
+    }
+
+    private func kycLabel(_ status: String) -> String {
+        switch status {
+        case "Approved": return "Identidad verificada por Didit"
+        case "sin_configurar": return "Verificación no configurada en el servidor"
+        case "error_de_red": return "No se pudo contactar con Didit"
+        default: return "Identidad no verificada (Didit: \(status))"
+        }
+    }
+
+    private func kycIcon(_ status: String) -> String {
+        status == "Approved" ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
     }
 
     private func reject(_ app: HelperApplication) async {

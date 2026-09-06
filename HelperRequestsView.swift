@@ -363,7 +363,7 @@ struct HelperRequestsView: View {
                     Button {
                         Task {
                             cancelReminders(for: request)
-                            await HelperService.close(request.id)
+                            await HelperService.finish(request, outcome: .completed)
                             await refresh()
                         }
                     } label: {

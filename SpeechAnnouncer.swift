@@ -56,6 +56,29 @@ final class SpeechAnnouncer: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.speak(utterance)
     }
 
+    /// Igual que `announce`, pero para contenido que NO tiene ninguna
+    /// representación en pantalla — VoiceOver no tiene qué narrar por su
+    /// cuenta, así que `announce` normal se calla y deja el flujo mudo. Se
+    /// usa solo para lo que de verdad no puede quedar en silencio: pedir
+    /// consentimiento antes de compartir datos con un ayudante.
+    ///
+    /// Antes de este método, con VoiceOver activo la pregunta de
+    /// consentimiento nunca se pronunciaba, pero el micrófono se abría igual
+    /// para escuchar la respuesta: la persona daba "sí" o "no" a una
+    /// pregunta que jamás llegó a oír.
+    func announceConsent(_ text: String, then: @escaping () -> Void = {}) {
+        guard !text.isEmpty else { then(); return }
+        guard !UIAccessibility.isVoiceOverRunning else {
+            UIAccessibility.post(notification: .announcement, argument: text)
+            // VoiceOver no avisa cuándo termina de hablar el anuncio; un
+            // margen proporcional al texto evita abrir el micrófono a mitad
+            // de frase.
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(text.count) * 0.06 + 0.6, execute: then)
+            return
+        }
+        announce(text, then: then)
+    }
+
     func stop() {
         completion = nil
         currentUtterance = nil

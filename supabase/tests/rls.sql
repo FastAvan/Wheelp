@@ -129,6 +129,33 @@ DO $$ DECLARE bloqueado boolean := false; BEGIN
 END $$;
 
 -- ============================================================
+-- 4b. Aprobar un ayudante exige que Didit lo haya verificado de verdad
+-- ============================================================
+-- Auditoria de especialistas 2026-09-06: kyc_session_id lo escribia el
+-- cliente y nadie lo comprobaba contra Didit. Sin este gate, un cliente
+-- modificado podia mandar cualquier texto y la solicitud se aprobaba igual.
+RESET ROLE;
+DO $$ DECLARE v_solicitante uuid; v_app uuid := gen_random_uuid(); bloqueado boolean := false; n int; BEGIN
+    SELECT id INTO v_solicitante FROM auth.users WHERE id NOT IN (SELECT user_id FROM public.admins) ORDER BY created_at LIMIT 1;
+    INSERT INTO public.helper_applications (id, user_id, display_name, city, status, kyc_session_id)
+    VALUES (v_app, v_solicitante, 'Prueba KYC', 'Madrid', 'pending', 'sesion-sin-verificar');
+
+    PERFORM set_config('request.jwt.claims',
+                       json_build_object('sub', (SELECT user_id FROM public.admins LIMIT 1), 'role', 'authenticated')::text, true);
+    BEGIN
+        PERFORM public.admin_approve_helper(v_app);
+    EXCEPTION WHEN OTHERS THEN bloqueado := (SQLERRM LIKE 'KYC not verified%');
+    END;
+    INSERT INTO t VALUES ('sin kyc_verified, no se puede aprobar', bloqueado);
+
+    UPDATE public.helper_applications SET kyc_verified = true, kyc_status = 'Approved' WHERE id = v_app;
+    PERFORM public.admin_approve_helper(v_app);
+    SELECT count(*) INTO n FROM public.helpers WHERE user_id = v_solicitante;
+    INSERT INTO t VALUES ('tras verificar de verdad, si se aprueba', n = 1);
+END $$;
+SET LOCAL ROLE authenticated;
+
+-- ============================================================
 -- 5. Aceptar: hace falta ser ayudante, y solo gana el primero
 -- ============================================================
 -- Como el ayudante, no como superusuario: guard_helper_id exige que quien pone
@@ -205,6 +232,51 @@ DO $$ DECLARE v_hasta timestamptz; BEGIN
     RETURNING available_until INTO v_hasta;
     INSERT INTO t VALUES ('el turno se recorta a 8 h en el servidor',
                           v_hasta <= now() + interval '8 hours' + interval '1 minute');
+END $$;
+
+-- ============================================================
+-- 8. Terminar una peticion asignada: nunca se borra, y deja rastro
+-- ============================================================
+-- Auditoria de especialistas 2026-09-06: terminar un servicio borraba la fila
+-- entera y cualquier ayudante podia hacerlo en cualquier momento. Media hora
+-- despues no quedaba ningun registro de que la ayuda hubiera ocurrido.
+DO $$ DECLARE n int; v_ended timestamptz; ok_rating boolean := false; BEGIN
+    -- Reutiliza la peticion de los bloques 5/6, ya aceptada por 'ayuda'.
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT ayuda FROM actores), 'role', 'authenticated')::text);
+
+    DELETE FROM public.help_requests WHERE id = (SELECT peticion FROM actores);
+    GET DIAGNOSTICS n = ROW_COUNT;
+    INSERT INTO t VALUES ('el ayudante no puede borrar una peticion asignada', n = 0);
+
+    UPDATE public.help_requests SET status = 'completed' WHERE id = (SELECT peticion FROM actores);
+    GET DIAGNOSTICS n = ROW_COUNT;
+    INSERT INTO t VALUES ('el ayudante SI puede marcarla completada', n = 1);
+
+    SELECT ended_at INTO v_ended FROM public.help_requests WHERE id = (SELECT peticion FROM actores);
+    INSERT INTO t VALUES ('ended_at se estampa solo al terminar', v_ended IS NOT NULL);
+
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT pide FROM actores), 'role', 'authenticated')::text);
+    BEGIN
+        INSERT INTO public.helper_ratings (id, helper_id, rater_id, rating)
+        VALUES (gen_random_uuid(), (SELECT ayuda FROM actores), (SELECT pide FROM actores), 5);
+        ok_rating := true;
+    EXCEPTION WHEN OTHERS THEN ok_rating := false;
+    END;
+    INSERT INTO t VALUES ('valorar al ayudante ya es posible tras completar', ok_rating);
+END $$;
+
+-- ============================================================
+-- 9. El radio de busqueda no se puede usar para barrer toda España
+-- ============================================================
+DO $$ DECLARE c_normal int; c_absurdo int; BEGIN
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT ayuda FROM actores), 'role', 'authenticated')::text);
+    SELECT count(*) INTO c_normal  FROM public.nearby_pending_requests(40.42, -3.70, 21);
+    SELECT count(*) INTO c_absurdo FROM public.nearby_pending_requests(40.42, -3.70, 5000);
+    INSERT INTO t VALUES ('un radio absurdo se recorta y no cambia el resultado',
+                          c_normal = c_absurdo);
 END $$;
 
 -- ============================================================

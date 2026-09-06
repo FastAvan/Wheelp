@@ -1517,12 +1517,20 @@ struct MapHomeView: View {
             Button("Finalizar") {
                 let finished = model.destination
                 // Captura el ayudante ANTES de reset() para poder valorarlo después.
+                let activeRequest = model.activeHelpRequest
                 let helperForRating: HelperRatingTarget? = {
-                    guard let req = model.activeHelpRequest,
+                    guard let req = activeRequest,
                           req.status == .accepted || req.status == .inProgress,
                           let helperId = req.helperId else { return nil }
                     return HelperRatingTarget(id: helperId, name: req.helperName ?? "Tu ayudante")
                 }()
+                // Esto es lo que faltaba para que valorar funcionara alguna
+                // vez: sin marcar la petición como 'completed' en el
+                // servidor, la política de valoraciones nunca dejaba
+                // insertar la nota, por mucho que aquí se mostrara el sheet.
+                if let req = activeRequest, helperForRating != nil {
+                    Task { await HelperService.finish(req, outcome: .completed) }
+                }
                 withAnimation { model.reset() }
                 if profile.voiceGuidance { speech.announce("Ruta finalizada.") }
                 if let finished { finishedContribution = ContributionTarget(item: finished) }

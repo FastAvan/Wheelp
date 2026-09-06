@@ -198,6 +198,15 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
                         body: "\(updated.helperName ?? "Un ayudante") ha aceptado tu petición en \(updated.placeName)."
                     )
                 }
+                // Terminar un servicio ya NO borra la fila (queda 'completed'
+                // o 'cancelled' unos días, para poder valorar al ayudante o
+                // revisar un incidente) — así que aquí no basta con esperar a
+                // que la fila desaparezca, hay que mirar también el estado.
+                if updated.status == .completed || updated.status == .cancelled {
+                    HelpCrypto.forget(requestId: updated.id)
+                    activeHelpRequest = nil
+                    break
+                }
                 activeHelpRequest = updated
             }
         }
@@ -227,8 +236,10 @@ final class MapHomeModel: NSObject, MKLocalSearchCompleterDelegate {
         activeHelpRequest = nil
         helpRequestedAt = nil
         searchRadiusKm = 5
-        // Cancelar borra la petición, sus mensajes y la clave de cifrado.
-        Task { await HelperService.close(request.id) }
+        // Si ya había ayudante asignado, queda como 'cancelled' un tiempo
+        // acotado en vez de desaparecer sin dejar rastro; si seguía pendiente
+        // y sin asignar, se borra: no hay nada que conservar.
+        Task { await HelperService.finish(request, outcome: .cancelled) }
     }
 
     /// Fuerza una actualización inmediata del estado de la petición activa.
