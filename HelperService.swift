@@ -144,6 +144,10 @@ struct HelperApplication: Codable, Identifiable {
     let motivation: String?
     let status: ApplicationStatus
     let createdAt: Date?
+    /// Resultado de la última comprobación contra Didit. Lo pone solo el
+    /// servidor (Edge Function admin-actions) al intentar aprobar — nil
+    /// significa que todavía no se ha intentado.
+    let kycStatus: String?
 
     enum ApplicationStatus: String, Codable {
         case pending, approved, rejected
@@ -153,6 +157,7 @@ struct HelperApplication: Codable, Identifiable {
         case id, city, phone, motivation, status
         case displayName = "display_name"
         case createdAt = "created_at"
+        case kycStatus = "kyc_status"
     }
 }
 
@@ -641,16 +646,30 @@ enum HelperService {
         }
     }
 
-    /// Termina una petición (completada o cancelada): borra la fila, sus
-    /// mensajes (en cascada) y la clave local. Para la otra persona, la
-    /// desaparición de la fila equivale al fin de la ayuda.
-    static func close(_ id: UUID) async {
-        // Only wipe the local key if the server delete is confirmed; a network
-        // failure otherwise leaves the row in the DB and a helper could still
-        // accept it while the key is already gone.
-        if (try? await supabase.from(table).delete().eq("id", value: id).execute()) != nil {
-            HelpCrypto.forget(requestId: id)
+    /// Termina una petición.
+    ///
+    /// Si nunca llegó a asignarse (sigue sin `helperId`, típicamente aún
+    /// `pending`), se borra: no hay nada que auditar después, y borrarla es
+    /// lo correcto para minimización. Si ya hubo una asignación, se pasa a un
+    /// estado final (`completed`/`cancelled`) y se conserva unos días — el
+    /// servidor (`purgar_datos_caducados`) la borra pasado ese plazo. Antes
+    /// esto borraba la fila SIEMPRE: medio minuto después de un servicio no
+    /// quedaba ni rastro de que hubiera ocurrido, y de paso las valoraciones
+    /// nunca podían escribirse porque exigen `status = 'completed'`, un
+    /// estado que nada llegaba a fijar.
+    static func finish(_ request: HelpRequest, outcome: HelpRequest.Status) async {
+        // Solo se olvida la clave local si el servidor confirma el cambio; un
+        // fallo de red deja la fila como estaba y la clave debe seguir ahí.
+        let confirmed: Bool
+        if request.helperId == nil {
+            confirmed = (try? await supabase.from(table).delete().eq("id", value: request.id).execute()) != nil
+        } else {
+            confirmed = (try? await supabase.from(table)
+                .update(["status": outcome.rawValue])
+                .eq("id", value: request.id)
+                .execute()) != nil
         }
+        if confirmed { HelpCrypto.forget(requestId: request.id) }
     }
 
     /// Distancia del ayudante al punto de encuentro (o a su zona aproximada).
@@ -860,7 +879,7 @@ enum HelperService {
         guard (try? await supabase.auth.session.user.id) != nil else { return nil }
         let rows: [HelperApplication]? = try? await supabase
             .from("helper_applications")
-            .select("id,display_name,city,phone,status,motivation,created_at")
+            .select("id,display_name,city,phone,status,motivation,created_at,kyc_status")
             .limit(1)
             .execute()
             .value
@@ -881,15 +900,25 @@ enum HelperService {
         return rows ?? []
     }
 
-    static func approveApplication(id: UUID) async -> Bool {
+    /// nil si se aprobó; si no, el motivo tal como lo dio el servidor —
+    /// normalmente el resultado real de la comprobación con Didit
+    /// ("Verificación de identidad no aprobada (Didit: Declined)"), no un
+    /// genérico "algo falló".
+    static func approveApplication(id: UUID) async -> String? {
         struct Body: Encodable { let action: String; let application_id: String }
+        struct ErrorBody: Decodable { let error: String }
         do {
             try await supabase.functions.invoke(
                 "admin-actions",
                 options: .init(body: Body(action: "approve", application_id: id.uuidString))
             )
-            return true
-        } catch { return false }
+            return nil
+        } catch let FunctionsError.httpError(_, data) {
+            let message = (try? JSONDecoder().decode(ErrorBody.self, from: data))?.error
+            return message ?? "No se pudo aprobar. Comprueba tu conexión e inténtalo de nuevo."
+        } catch {
+            return "No se pudo aprobar. Comprueba tu conexión e inténtalo de nuevo."
+        }
     }
 
     static func rejectApplication(id: UUID) async -> Bool {

@@ -1,5 +1,6 @@
 import SwiftUI
 import MapKit
+import MessageUI
 
 /// Pantalla principal de la versión Visual: manos libres por voz (o solo toques).
 /// Flujo: decir/escribir destino → opciones (di el número o tócalo) →
@@ -16,6 +17,11 @@ struct VoiceHomeView: View {
     @State private var showSettings = false
     @State private var showContribute = false
     @State private var chatRequest: HelpRequest?
+    /// Código de verificación del encuentro, y descripción para el mensaje de SOS.
+    /// Sin esto el perfil visual no tenía ni una cosa ni la otra: alguien ciego,
+    /// en un encuentro físico con un desconocido, se quedaba sin botón de
+    /// emergencia y sin forma de confirmar que era la persona correcta.
+    @State private var activeHelpMeetingCode: String?
     @State private var listenMode: ListenMode = .destination
     @State private var awaitingSearch = false
     @State private var commandMatched = false
@@ -133,6 +139,9 @@ struct VoiceHomeView: View {
                 recognizer.stop()
                 announceCurrentStep()
             }
+        }
+        .onChange(of: model.activeHelpRequest?.helperId) { _, helperId in
+            handleHelperIdChange(helperId)
         }
         .onChange(of: model.activeHelpRequest) { old, new in
             // Avisa en voz alta cuando un ayudante acepta la petición.
@@ -553,14 +562,24 @@ struct VoiceHomeView: View {
                 }
                 .accessibilityElement(children: .combine)
 
-                if request.status == .accepted {
-                    Button {
-                        chatRequest = request
-                    } label: {
-                        Label("Abrir chat", systemImage: "bubble.left.and.bubble.right.fill")
+                if request.status == .accepted || request.status == .inProgress {
+                    if let code = activeHelpMeetingCode {
+                        MeetingCodeView(code: code, isRequester: true)
                     }
-                    .buttonStyle(.wheelpOutline)
-                    .frame(minHeight: 56)
+                    HStack(spacing: 10) {
+                        Button {
+                            chatRequest = request
+                        } label: {
+                            Label("Abrir chat", systemImage: "bubble.left.and.bubble.right.fill")
+                        }
+                        .buttonStyle(.wheelpOutline)
+                        .frame(minHeight: 56)
+
+                        SOSButton(
+                            meetingDescription: sosDescription(request),
+                            trustedPhone: appState.trustedContactPhone
+                        )
+                    }
                 }
             }
         } else {
@@ -572,6 +591,17 @@ struct VoiceHomeView: View {
             .buttonStyle(.wheelpOutline)
             .frame(minHeight: 60)
         }
+    }
+
+    private func handleHelperIdChange(_ helperId: UUID?) {
+        activeHelpMeetingCode = nil
+        guard helperId != nil, let request = model.activeHelpRequest else { return }
+        Task { activeHelpMeetingCode = await HelperService.meetingCode(for: request) }
+    }
+
+    private func sosDescription(_ request: HelpRequest) -> String {
+        if let name = request.meetingName { return "Punto de encuentro: \(name)" }
+        return "Destino: \(request.placeName)"
     }
 
     /// Botón grande central (como el de inicio) para hablar durante la navegación:
@@ -875,7 +905,10 @@ struct VoiceHomeView: View {
         // Consentimiento explícito antes de compartir nada con los ayudantes.
         pendingMeeting = meeting
         awaitingConsent = true
-        speech.announce("Para avisar a los ayudantes compartiré tu nombre y las ubicaciones de este trayecto, solo para esta petición. ¿Estás de acuerdo? Di sí o no.") {
+        // announceConsent, no announce: esta pregunta no está escrita en
+        // ningún sitio de la pantalla, así que con VoiceOver activo announce()
+        // se callaría y el micrófono se abriría sin haberse formulado nunca.
+        speech.announceConsent("Para avisar a los ayudantes compartiré tu nombre y las ubicaciones de este trayecto, solo para esta petición. ¿Estás de acuerdo? Di sí o no.") {
             listenForCommandIfEnabled()
         }
     }
