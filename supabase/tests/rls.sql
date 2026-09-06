@@ -186,12 +186,12 @@ DO $$ DECLARE bloqueado boolean := false; BEGIN
 END $$;
 
 -- ============================================================
--- 5b. El ayudante puede cerrar la sesión ya empezada
+-- 5b. El ayudante puede empezar el trayecto
 -- ============================================================
--- El "Completada" del ayudante borra la fila, y la desaparición de la fila es
--- lo que le dice al solicitante que la ayuda ha terminado. Si el DELETE no
--- pasara, la pantalla del solicitante se quedaría colgada sin que nadie se
--- entere: no hay error visible en ningún lado.
+-- El cierre de la sesión (completada/cancelada, sin DELETE) se prueba en el
+-- bloque 8 más abajo, junto con el resto del hallazgo 2 del audit — antes
+-- este bloque esperaba que el DELETE del ayudante tuviera éxito, que es
+-- justo la vulnerabilidad que el bloque 8 comprueba que ya no existe.
 DO $$ DECLARE n int; BEGIN
     EXECUTE format('set local request.jwt.claims to %L',
                    json_build_object('sub', (SELECT ayuda FROM actores), 'role', 'authenticated')::text);
@@ -199,10 +199,6 @@ DO $$ DECLARE n int; BEGIN
      WHERE id = (SELECT peticion FROM actores);
     GET DIAGNOSTICS n = ROW_COUNT;
     INSERT INTO t VALUES ('el ayudante puede empezar el trayecto', n = 1);
-
-    DELETE FROM public.help_requests WHERE id = (SELECT peticion FROM actores);
-    GET DIAGNOSTICS n = ROW_COUNT;
-    INSERT INTO t VALUES ('el ayudante puede cerrar la sesion empezada', n = 1);
 END $$;
 
 -- ============================================================
@@ -210,7 +206,7 @@ END $$;
 -- ============================================================
 RESET ROLE;
 DO $$ DECLARE bloqueado boolean := false; v_otra uuid := gen_random_uuid(); BEGIN
-    -- Petición nueva: la anterior la cerró el ayudante en 5b.
+    -- Petición nueva e independiente de la de los bloques 5/5b/8.
     INSERT INTO public.help_requests
         (id, requester_id, disability_type, status, place_name, requester_pubkey,
          area_latitude, area_longitude)
@@ -233,6 +229,13 @@ DO $$ DECLARE v_hasta timestamptz; BEGIN
     INSERT INTO t VALUES ('el turno se recorta a 8 h en el servidor',
                           v_hasta <= now() + interval '8 hours' + interval '1 minute');
 END $$;
+
+-- Los bloques 6 y 7 corren tras un RESET ROLE (7 modifica helpers como
+-- superusuario a propósito, para probar el trigger sin que RLS estorbe). Los
+-- de aquí en adelante SÍ necesitan ser 'authenticated' de verdad, o el propio
+-- superusuario se salta las políticas que se quieren comprobar — el aviso del
+-- principio de este fichero, en el que ya caí una vez al añadir estos bloques.
+SET LOCAL ROLE authenticated;
 
 -- ============================================================
 -- 8. Terminar una peticion asignada: nunca se borra, y deja rastro
