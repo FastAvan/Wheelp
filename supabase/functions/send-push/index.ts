@@ -7,20 +7,28 @@ const APNS_HOST = Deno.env.get("APNS_ENVIRONMENT") === "production"
 const NEARBY_RADIUS_KM = 5;
 const APNS_FETCH_TIMEOUT_MS = 5000;
 
-function base64UrlDecode(input: string): string {
-  let b64 = input.replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4) b64 += "=";
-  return atob(b64);
-}
-
+// Audit 2026-09-07: antes esto decodificaba el JWT del Authorization y
+// confiaba en el claim `role` sin comprobar la firma. El primer intento de
+// arreglo comparaba el header completo contra SUPABASE_SERVICE_ROLE_KEY, y
+// rompió el envío real en producción: el gateway acepta el JWT de servicio
+// legado que manda el trigger (guardado en Vault), pero la variable que
+// Supabase inyecta dentro de la función ya no es la misma cadena — dos
+// copias de "la clave de servicio" que Supabase puede desincronizar sin
+// avisar, y de hecho ya lo hizo.
+//
+// Por eso la comprobación real va en una cabecera aparte, con un secreto
+// que solo controla Wheelp (Vault: wheelp_push_secret / función:
+// WHEELP_PUSH_SECRET) y que nada de Supabase puede rotar por su cuenta. El
+// Authorization: Bearer sigue mandándose igual —hace falta para que el
+// gateway deje pasar la petición (verify_jwt: true)— pero ya no es lo que
+// esta función comprueba.
+//
+// ponytail: comparación no de tiempo constante. Con un secreto de 32 bytes
+// en base64 el margen de un ataque de temporización por red es inexistente.
 function isServiceRoleRequest(req: Request): boolean {
-  const authHeader = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
-  try {
-    const claims = JSON.parse(base64UrlDecode(authHeader.split(".")[1]));
-    return claims.role === "service_role";
-  } catch {
-    return false;
-  }
+  const secret = req.headers.get("X-Wheelp-Push-Secret") ?? "";
+  const expected = Deno.env.get("WHEELP_PUSH_SECRET") ?? "";
+  return secret.length > 0 && secret === expected;
 }
 
 async function apnsJWT(): Promise<string> {
