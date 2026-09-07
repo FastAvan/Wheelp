@@ -63,7 +63,7 @@ END $$;
 -- Las tablas temporales las crea el rol de la conexión; sin esto, al cambiar a
 -- `authenticated` para probar las políticas, el propio andamiaje da
 -- "permission denied" y parece un fallo de la prueba.
-GRANT ALL ON t, actores TO authenticated;
+GRANT ALL ON t, actores TO authenticated, anon;
 
 -- ============================================================
 -- 1. Un no-ayudante no ve peticiones cercanas
@@ -280,6 +280,77 @@ DO $$ DECLARE c_normal int; c_absurdo int; BEGIN
     SELECT count(*) INTO c_absurdo FROM public.nearby_pending_requests(40.42, -3.70, 5000);
     INSERT INTO t VALUES ('un radio absurdo se recorta y no cambia el resultado',
                           c_normal = c_absurdo);
+END $$;
+
+-- ============================================================
+-- 10. Minimo privilegio: anon no ejecuta funciones sensibles (audit 2026-09-07)
+-- ============================================================
+-- Hallazgos F1-F4: CREATE FUNCTION concede EXECUTE a PUBLIC por defecto, y eso
+-- dejaba is_admin(), nearby_helper_ids(), aceptar_peticion() y la purga
+-- (SECURITY DEFINER, vector de DoS real) ejecutables sin autenticarse.
+RESET ROLE;
+SET LOCAL ROLE anon;
+DO $$ DECLARE bloqueado boolean := false; BEGIN
+    BEGIN
+        PERFORM public.is_admin();
+    EXCEPTION WHEN insufficient_privilege THEN bloqueado := true;
+    END;
+    INSERT INTO t VALUES ('anon no puede ejecutar is_admin()', bloqueado);
+
+    bloqueado := false;
+    BEGIN
+        PERFORM public.nearby_helper_ids(40.42, -3.70, 10);
+    EXCEPTION WHEN insufficient_privilege THEN bloqueado := true;
+    END;
+    INSERT INTO t VALUES ('anon no puede ejecutar nearby_helper_ids()', bloqueado);
+
+    bloqueado := false;
+    BEGIN
+        PERFORM public.aceptar_peticion(gen_random_uuid(), 'pk', 'p');
+    EXCEPTION WHEN insufficient_privilege THEN bloqueado := true;
+    END;
+    INSERT INTO t VALUES ('anon no puede ejecutar aceptar_peticion()', bloqueado);
+
+    bloqueado := false;
+    BEGIN
+        PERFORM public.purgar_datos_caducados();
+    EXCEPTION WHEN insufficient_privilege THEN bloqueado := true;
+    END;
+    INSERT INTO t VALUES ('anon no puede ejecutar purgar_datos_caducados()', bloqueado);
+END $$;
+SET LOCAL ROLE authenticated;
+
+-- ============================================================
+-- 11. admin_audit_log: solo admins la leen, nadie escribe desde el cliente
+-- ============================================================
+-- Hallazgo F5: RLS estaba activado pero sin politica de SELECT, asi que ni
+-- los admins podian leer su propio registro de auditoria.
+RESET ROLE;
+DO $$ DECLARE v_fila uuid := gen_random_uuid(); BEGIN
+    INSERT INTO public.admin_audit_log (id, actor_id, accion)
+    VALUES (v_fila, (SELECT admin FROM actores), 'prueba_rls');
+    CREATE TEMP TABLE fila_auditoria AS SELECT v_fila AS id;
+END $$;
+GRANT ALL ON fila_auditoria TO authenticated;
+SET LOCAL ROLE authenticated;
+DO $$ DECLARE c int; escrito boolean := false; BEGIN
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT admin FROM actores), 'role', 'authenticated')::text);
+    SELECT count(*) INTO c FROM public.admin_audit_log WHERE id = (SELECT id FROM fila_auditoria);
+    INSERT INTO t VALUES ('un admin SI lee el registro de auditoria', c = 1);
+
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT tercero FROM actores), 'role', 'authenticated')::text);
+    SELECT count(*) INTO c FROM public.admin_audit_log WHERE id = (SELECT id FROM fila_auditoria);
+    INSERT INTO t VALUES ('un no-admin no lee el registro de auditoria', c = 0);
+
+    BEGIN
+        INSERT INTO public.admin_audit_log (id, actor_id, accion)
+        VALUES (gen_random_uuid(), (SELECT tercero FROM actores), 'prueba_desde_cliente');
+        escrito := true;
+    EXCEPTION WHEN insufficient_privilege THEN escrito := false;
+    END;
+    INSERT INTO t VALUES ('nadie escribe en el registro de auditoria desde el cliente', escrito = false);
 END $$;
 
 -- ============================================================
