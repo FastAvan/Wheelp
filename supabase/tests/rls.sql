@@ -220,8 +220,49 @@ DO $$ DECLARE bloqueado boolean := false; v_otra uuid := gen_random_uuid(); BEGI
 END $$;
 
 -- ============================================================
+-- 6b. Un ayudante asignado no puede corromper la petición (audit 2026-09-14)
+-- ============================================================
+-- Hallazgo 2: peticion_inmutable() solo protegía requester_id,
+-- disability_type y el área. Un ayudante con helper_id = auth.uid() podía
+-- sobrescribir place_name y requester_pubkey, y anular requester_payload,
+-- sin que el trigger lo impidiera — verificado explotable antes del fix.
+SET LOCAL ROLE authenticated;
+DO $$ DECLARE bloqueado boolean := false; v_otra uuid := gen_random_uuid(); BEGIN
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT pide FROM actores), 'role', 'authenticated')::text);
+    INSERT INTO public.help_requests
+        (id, requester_id, helper_id, disability_type, status, place_name,
+         requester_pubkey, requester_payload, area_latitude, area_longitude)
+    VALUES (v_otra, (SELECT pide FROM actores), (SELECT ayuda FROM actores), 'visual', 'accepted',
+            'Sitio correcto', 'pubkey-original', 'payload-secreto', 40.42, -3.70);
+
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT ayuda FROM actores), 'role', 'authenticated')::text);
+    BEGIN
+        UPDATE public.help_requests
+        SET place_name = 'Direccion falsa', requester_pubkey = 'pubkey-envenenada', requester_payload = NULL
+        WHERE id = v_otra;
+    EXCEPTION WHEN insufficient_privilege THEN bloqueado := true;
+    END;
+    INSERT INTO t VALUES ('el ayudante no puede corromper place_name/pubkey/payload ajenos', bloqueado);
+
+    -- El ayudante SI sigue pudiendo escribir su propio canal.
+    UPDATE public.help_requests SET helper_payload = 'respuesta-cifrada' WHERE id = v_otra;
+    INSERT INTO t VALUES ('el ayudante SI puede seguir escribiendo helper_payload',
+                          (SELECT helper_payload FROM public.help_requests WHERE id = v_otra) = 'respuesta-cifrada');
+
+    -- Quien pide SI sigue pudiendo actualizar su propio payload.
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT pide FROM actores), 'role', 'authenticated')::text);
+    UPDATE public.help_requests SET requester_payload = 'payload-nuevo' WHERE id = v_otra;
+    INSERT INTO t VALUES ('el solicitante SI puede seguir actualizando su propio requester_payload',
+                          (SELECT requester_payload FROM public.help_requests WHERE id = v_otra) = 'payload-nuevo');
+END $$;
+
+-- ============================================================
 -- 7. El turno no puede pasar de 8 horas
 -- ============================================================
+RESET ROLE;
 DO $$ DECLARE v_hasta timestamptz; BEGIN
     UPDATE public.helpers SET available = true, available_until = now() + interval '30 days'
      WHERE user_id = (SELECT ayuda FROM actores)

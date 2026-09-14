@@ -41,7 +41,14 @@ jobs:
 
   # Las puertas de autorización no se pueden probar desde XCTest sin red: viven
   # en Postgres. Job aparte y en Ubuntu porque ahí psql ya viene instalado.
-  # Se salta solo si no hay secreto configurado, para que un fork no falle.
+  #
+  # Audit 2026-09-14, hallazgo 1: si SUPABASE_DB_URL falta (rotación de
+  # credenciales, secreto renombrado, etc.), este job debe FALLAR, no saltarse
+  # con éxito — de lo contrario testflight ve dos puertas en verde y despliega
+  # sin que ninguna prueba de RLS se haya ejecutado. El repo es público, así
+  # que un PR desde un fork sin acceso a los secretos también fallará aquí —
+  # se acepta esa molestia porque testflight solo corre con push a main
+  # (nunca con pull_request), así que ningún fork puede desplegar por esto.
   rls:
     runs-on: ubuntu-latest
     steps:
@@ -52,8 +59,8 @@ jobs:
           DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           if [ -z "$DATABASE_URL" ]; then
-            echo "::warning::Sin SUPABASE_DB_URL: las pruebas de autorización NO se han ejecutado"
-            exit 0
+            echo "::error::SUPABASE_DB_URL no configurado — las pruebas de autorización son obligatorias en main."
+            exit 1
           fi
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/rls.sql
 
