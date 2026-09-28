@@ -395,6 +395,37 @@ DO $$ DECLARE c int; escrito boolean := false; BEGIN
 END $$;
 
 -- ============================================================
+-- 12. push_tokens: solo el dueno, y anon no entra (audit 2026-09-28)
+-- ============================================================
+-- own_token estaba en el rol {public} en vez de {authenticated}: no era
+-- explotable (auth.uid() da NULL sin JWT) pero se corrige junto con el
+-- envoltorio (select auth.uid()) del hallazgo 3.
+RESET ROLE;
+SET LOCAL ROLE anon;
+DO $$ DECLARE bloqueado boolean := false; BEGIN
+    BEGIN
+        INSERT INTO public.push_tokens (id, user_id, token, updated_at)
+        VALUES (gen_random_uuid(), gen_random_uuid(), 'x', now());
+    EXCEPTION WHEN insufficient_privilege THEN bloqueado := true;
+    END;
+    INSERT INTO t VALUES ('anon no puede insertar en push_tokens', bloqueado);
+END $$;
+SET LOCAL ROLE authenticated;
+DO $$ DECLARE n int; BEGIN
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT ayuda FROM actores), 'role', 'authenticated')::text);
+    INSERT INTO public.push_tokens (id, user_id, token, updated_at)
+    VALUES (gen_random_uuid(), (SELECT ayuda FROM actores), 'token-propio', now());
+    SELECT count(*) INTO n FROM public.push_tokens WHERE user_id = (SELECT ayuda FROM actores);
+    INSERT INTO t VALUES ('el dueno SI inserta y lee su propio push_token', n = 1);
+
+    EXECUTE format('set local request.jwt.claims to %L',
+                   json_build_object('sub', (SELECT tercero FROM actores), 'role', 'authenticated')::text);
+    SELECT count(*) INTO n FROM public.push_tokens WHERE user_id = (SELECT ayuda FROM actores);
+    INSERT INTO t VALUES ('un tercero no lee el push_token ajeno', n = 0);
+END $$;
+
+-- ============================================================
 -- Resultado
 -- ============================================================
 SELECT nombre, CASE WHEN ok THEN 'OK' ELSE 'FALLO' END AS resultado FROM t ORDER BY nombre;
