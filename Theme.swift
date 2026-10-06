@@ -76,4 +76,45 @@ extension View {
             self.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
         }
     }
+
+    // MARK: - Pantallas bajas (iPhone Duo, apaisado, Dynamic Type grande)
+    //
+    // La pantalla exterior del iPhone Duo es más baja que la de cualquier
+    // iPhone, y en apaisado (modo tienda) más aún. Con letra grande, lo que
+    // antes cabía se cortaba por abajo: botones como "Continuar" o el SOS
+    // quedaban fuera de la pantalla sin forma de llegar a ellos.
+
+    /// Tarjeta pegada a un borde: crece con su contenido hasta `maxHeight` y a
+    /// partir de ahí se desplaza. Mientras quepa se ve exactamente igual que
+    /// antes. La identidad de la vista no cambia al plegar/desplegar, así que
+    /// no se pierde estado de lo que lleva dentro (diálogo del SOS, foco de
+    /// VoiceOver).
+    func scrollable(beyond maxHeight: CGFloat) -> some View {
+        ScrollView { self }
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: maxHeight)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Contenido centrado que ocupa el espacio disponible: igual que antes si
+    /// cabe, desplazable si no. Misma identidad siempre (ver arriba). No sirve
+    /// para pilas con `Spacer`: dentro de un scroll se encogen.
+    func scrollableWhenTooTall() -> some View {
+        GeometryReader { proxy in
+            ScrollView {
+                self.frame(maxWidth: .infinity, minHeight: proxy.size.height)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+        }
+    }
+
+    /// Para pantallas de onboarding hechas con `Spacer`: se dejan tal cual si
+    /// caben y solo pasan a un scroll si no. Al cruzar el umbral la vista se
+    /// recrea, así que úsalo solo en vistas sin estado propio.
+    func scrollableIfClipped() -> some View {
+        ViewThatFits(in: .vertical) {
+            self
+            ScrollView { self }
+        }
+    }
 }

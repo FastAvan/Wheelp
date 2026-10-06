@@ -10,13 +10,18 @@ jobs:
   build-and-validate:
     # macos-15 trae como mucho Xcode 16.4 (Swift 6.1.2) y DiditSDK.framework
     # está compilado con Swift 6.3.3: el módulo no carga en un toolchain más
-    # antiguo. macos-26 trae Xcode 26.x, con Swift >= 6.3.3.
-    runs-on: macos-26
+    # antiguo.
+    #
+    # iPhone Duo: solo con el SDK de iOS 27.1 (Xcode 27.1) la app ocupa las dos
+    # pantallas enteras; con el SDK 26 sale en una ventana de tamaño iPhone con
+    # bandas alrededor. Xcode 27.1 solo está en la imagen xcode-27 (en
+    # "preview" en GitHub a 2026-10-06), no en macos-26.
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+      - name: Select Xcode 27.1
+        run: sudo xcode-select -s /Applications/Xcode_27.1.app
 
       - name: Build for iOS Simulator
         run: |
@@ -81,14 +86,15 @@ jobs:
   testflight:
     needs: [build-and-validate, rls]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: macos-26
+    # Mismo Xcode que build-and-validate: lo que se prueba es lo que se sube.
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # el número de build sale del recuento de commits
 
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app
+      - name: Select Xcode 27.1
+        run: sudo xcode-select -s /Applications/Xcode_27.1.app
 
       - name: Colocar la clave de App Store Connect
         env:

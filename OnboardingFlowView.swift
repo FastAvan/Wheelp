@@ -268,6 +268,9 @@ private struct WelcomeView: View {
                 .buttonStyle(.wheelpPrimary)
         }
         .padding(28)
+        // Pantalla exterior del iPhone Duo en apaisado o letra grande: si no
+        // cabe, scroll en vez de dejar el botón de avanzar fuera de pantalla.
+        .scrollableIfClipped()
     }
 }
 
@@ -329,6 +332,9 @@ private struct AssistantIntroView: View {
             }
         }
         .padding(28)
+        // Pantalla exterior del iPhone Duo en apaisado o letra grande: si no
+        // cabe, scroll en vez de dejar el botón de avanzar fuera de pantalla.
+        .scrollableIfClipped()
     }
 }
 
@@ -362,6 +368,9 @@ private struct DisabilityTypeView: View {
             }
         }
         .padding(28)
+        // Pantalla exterior del iPhone Duo en apaisado o letra grande: si no
+        // cabe, scroll en vez de dejar el botón de avanzar fuera de pantalla.
+        .scrollableIfClipped()
     }
 }
 
@@ -445,6 +454,9 @@ private struct HelperIntroView: View {
             }
         }
         .padding(28)
+        // Pantalla exterior del iPhone Duo en apaisado o letra grande: si no
+        // cabe, scroll en vez de dejar el botón de avanzar fuera de pantalla.
+        .scrollableIfClipped()
     }
 }
 
@@ -474,5 +486,8 @@ private struct NoDisabilityNoticeView: View {
                 .buttonStyle(.wheelpPrimary)
         }
         .padding(28)
+        // Pantalla exterior del iPhone Duo en apaisado o letra grande: si no
+        // cabe, scroll en vez de dejar el botón de avanzar fuera de pantalla.
+        .scrollableIfClipped()
     }
 }

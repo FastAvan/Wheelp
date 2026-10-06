@@ -43,6 +43,26 @@ struct MapHomeView: View {
     /// Cuando está activo, el mapa gira para seguir la dirección de marcha del usuario.
     @State private var headingUp = false
     @FocusState private var searchFocused: Bool
+    /// Alto del mapa y del buscador, para que la tarjeta inferior no se monte
+    /// encima del buscador en pantallas bajas (exterior del iPhone Duo, apaisado).
+    @State private var mapHeight: CGFloat = .infinity
+    @State private var searchPanelHeight: CGFloat = 0
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    /// En anchura regular (pantalla interior del iPhone Duo, iPad) los paneles
+    /// mantienen el ancho de iPhone y se pegan al borde, como en Mapas. Así no
+    /// se estiran a 900 pt ni cruzan el pliegue central cuando el Duo está
+    /// medio doblado (el pliegue cae en la mitad: 440 < 890 / 2).
+    private var panelMaxWidth: CGFloat {
+        horizontalSizeClass == .regular ? 440 : .infinity
+    }
+
+    /// Tope de la tarjeta inferior: lo que deja el buscador más una franja de
+    /// mapa visible. ponytail: franja fija de 120 pt; si en algún pliegue se
+    /// queda corta, pasar a ReservedRegion (iOS 27.1).
+    private var bottomCardMaxHeight: CGFloat {
+        max(200, mapHeight - searchPanelHeight - 120)
+    }
 
     var body: some View {
         mappedWithObservers
@@ -315,13 +335,31 @@ struct MapHomeView: View {
             MapCompass()
         }
         .ignoresSafeArea(edges: .bottom)
-        .safeAreaInset(edge: .top) { searchPanel.ignoresSafeArea(.keyboard) }
-        .safeAreaInset(edge: .bottom) { bottomCard.ignoresSafeArea(.keyboard) }
+        .safeAreaInset(edge: .top) { topInset }
+        .safeAreaInset(edge: .bottom) { bottomInset }
         .ignoresSafeArea(.keyboard)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { mapHeight = $0 }
         .overlay(alignment: .top) { routeReadyBanner }
         // AnyView rompe la cadena de tipos genéricos anidados del Map
         // para que el type-checker pueda manejar los modificadores posteriores.
         .eraseToAnyView()
+    }
+
+    // Fuera de coreMap para no alargar la cadena del type-checker.
+    private var topInset: some View {
+        searchPanel
+            .frame(maxWidth: panelMaxWidth)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { searchPanelHeight = $0 }
+            .ignoresSafeArea(.keyboard)
+    }
+
+    private var bottomInset: some View {
+        bottomCard
+            .scrollable(beyond: bottomCardMaxHeight)
+            .frame(maxWidth: panelMaxWidth)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .ignoresSafeArea(.keyboard)
     }
 
     // MARK: - Banner de confirmación (versión Auditiva)
@@ -407,13 +445,15 @@ struct MapHomeView: View {
                 .accessibilityLabel("Perfil y ajustes")
             }
 
+            // Cinco resultados con letra grande no caben en la pantalla
+            // exterior del Duo: se desplazan en vez de tapar todo el mapa.
             if !model.results.isEmpty, model.previewItem == nil, model.route == nil {
-                searchResultsList
+                searchResultsList.scrollable(beyond: mapHeight * 0.5)
             } else if !model.completions.isEmpty {
-                completionsList
+                completionsList.scrollable(beyond: mapHeight * 0.5)
             } else if searchFocused, model.previewItem == nil, model.route == nil {
                 if !model.favorites.isEmpty || !model.recents.isEmpty {
-                    savedPlacesList
+                    savedPlacesList.scrollable(beyond: mapHeight * 0.5)
                 } else {
                     searchTip
                 }

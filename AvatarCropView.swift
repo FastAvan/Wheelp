@@ -97,7 +97,9 @@ struct AvatarCropView: View {
     private func cropResult() -> UIImage {
         let img = normalized(image)
         let imgPoints = img.size
-        let container = containerSize.width > 0 ? containerSize : UIScreen.main.bounds.size
+        // Sin UIScreen.main: en el iPhone Duo hay dos pantallas y Apple lo va a
+        // deprecar. Si aún no hubo layout, se recorta sobre la propia imagen.
+        let container = containerSize.width > 0 ? containerSize : img.size
         let cropSizePoints = container.width * cropFraction
 
         let fillScale = max(container.width / imgPoints.width, container.height / imgPoints.height)
