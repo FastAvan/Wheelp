@@ -54,12 +54,15 @@ struct VoiceHomeView: View {
             Spacer(minLength: 0)
             Group {
                 switch phase {
-                case .routing: routingView
+                // Ruta y entrada también: en la pantalla exterior del iPhone
+                // Duo (o en apaisado) con letra grande el SOS y "Finalizar"
+                // quedaban por debajo del borde, sin forma de llegar a ellos.
+                case .routing: routingView.scrollableWhenTooTall()
                 // Resultados y ficha pueden crecer mucho con letra grande:
                 // scroll para que nada quede cortado.
                 case .confirm: ScrollView(showsIndicators: false) { confirmView }
                 case .results: ScrollView(showsIndicators: false) { resultsView }
-                case .idle: entryView
+                case .idle: entryView.scrollableWhenTooTall()
                 }
             }
             .frame(maxWidth: .infinity)

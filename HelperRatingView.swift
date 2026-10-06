@@ -76,6 +76,9 @@ struct HelperRatingView: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 32)
         }
+        // A media altura, en la pantalla exterior del iPhone Duo apaisada no
+        // caben las estrellas y el botón de enviar.
+        .scrollableWhenTooTall()
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
     }
